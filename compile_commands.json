@@ -1,0 +1,12 @@
+[
+{
+  "directory": "C:/Users/idiaz/Source/Repos/shadowndacorner/minivm/build/ninja-debug",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1429~1.300\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -I..\\..\\vm\\.\\include /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd -std:c++17 /Fovm\\CMakeFiles\\minivm.dir\\src\\vm.cpp.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\idiaz\\Source\\Repos\\shadowndacorner\\minivm\\vm\\src\\vm.cpp",
+  "file": "C:/Users/idiaz/Source/Repos/shadowndacorner/minivm/vm/src/vm.cpp"
+},
+{
+  "directory": "C:/Users/idiaz/Source/Repos/shadowndacorner/minivm/build/ninja-debug",
+  "command": "C:\\PROGRA~2\\MICROS~2\\2019\\COMMUN~1\\VC\\Tools\\MSVC\\1429~1.300\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -I..\\..\\vm\\.\\include /DWIN32 /D_WINDOWS /GR /EHsc /Zi /Ob0 /Od /RTC1 -MDd -std:c++17 /Forepl\\CMakeFiles\\repl.dir\\src\\main.cpp.obj /FdTARGET_COMPILE_PDB /FS -c C:\\Users\\idiaz\\Source\\Repos\\shadowndacorner\\minivm\\repl\\src\\main.cpp",
+  "file": "C:/Users/idiaz/Source/Repos/shadowndacorner/minivm/repl/src/main.cpp"
+}
+]

@@ -1,0 +1,11 @@
+$demostring "This is a test"
+$0 u0
+$10 u10
+$s-10 s-10
+
+.main
+    load r0 $0
+    load r1 $10
+    add r0 r1
+    printi r0
+    ret $0
