@@ -2,7 +2,8 @@
 
 namespace minivm
 {
-    execution_context::execution_context(program& program) : _program(program)
+    execution_context::execution_context(program& program)
+        : _program(program), _did_yield(false)
     {
     }
 
@@ -30,8 +31,19 @@ namespace minivm
         return run();
     }
 
+    bool execution_context::resume()
+    {
+        return run();
+    }
+
+    bool execution_context::did_yield() const
+    {
+        return _did_yield;
+    }
+
     bool execution_context::run()
     {
+        _did_yield = false;
         bool shouldRun = true;
         size_t pSize = _program.opcodes.size();
         while (shouldRun && _registers.pc < pSize)
@@ -85,6 +97,7 @@ namespace minivm
                     printf("%f\n", _registers.registers[code.arg0].freg);
                     break;
                 case instruction::yield:
+                    _did_yield = true;
                     shouldRun = false;
                     break;
                 case instruction::cmp:
@@ -97,6 +110,13 @@ namespace minivm
                     break;
                 case instruction::jeq:
                     if (!_registers.cmp)
+                    {
+                        // Subtracting 1 because we increment pc after
+                        _registers.pc = code.warg0 - 1;
+                    }
+                    break;
+                case instruction::jne:
+                    if (_registers.cmp)
                     {
                         // Subtracting 1 because we increment pc after
                         _registers.pc = code.warg0 - 1;

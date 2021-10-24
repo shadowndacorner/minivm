@@ -1,17 +1,24 @@
-$demostring "This is \x65 te\nst"
-$0 u500
-$s-10 s-10
-$ftest f-10.50002
-$10 s-10
+$0 s0
+$1 s1
+$10 s10
+
+$a f10.4
+$b f53.2
 
 .main
-    loadfc r0 $ftest
-    loadfc r1 $ftest
-    addf r0 r1
-    loadff r4 r0
-    printf r4
+    loadfc r0 $a
+    loadfc r1 $b
+
+    loadic r3 $0
+    loadic r4 $10
+    loadic r5 $1
+    jump .skip
 .loop
-    cmp r0 r4
     addf r0 r1
     printf r0
-    jeq .loop
+    addi r3 r5
+    cmp r3 r4
+    yield
+    jne .loop
+.skip
+    printf r0

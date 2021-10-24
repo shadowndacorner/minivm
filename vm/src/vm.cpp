@@ -285,6 +285,7 @@ namespace minivm
                     while ((c = getchar()) && c != '\n')
                     {
                     }
+                    continue;
                 }
 
                 if (is_whitespace(c)) continue;
@@ -302,7 +303,6 @@ namespace minivm
                     return true;
                 }
 
-                // TODO: Detect constants
                 tok.type = token::toktype::ident;
                 tok.source = read_ident_source(-1);
                 return true;
@@ -398,6 +398,7 @@ namespace minivm
                     {"cmp", instruction::cmp},
                     {"jump", instruction::jump},
                     {"jeq", instruction::jeq},
+                    {"jne", instruction::jne},
                     // End generated
                 };
 
@@ -451,6 +452,7 @@ namespace minivm
                     // No arguments
                     break;
                 case instruction::jump:
+                case instruction::jne:
                 case instruction::jeq:
                 {
                     token labelTok;
@@ -473,13 +475,31 @@ namespace minivm
                     if (program.labels.count(label))
                     {
                         op.warg0 = program.labels[label];
+                        op.arg2 = 0;
                     }
                     else
                     {
-                        // TODO: Add support for labels that come after the jump
-                        error = "Label for " + std::string(instruction.source) +
-                                " does not exist";
-                        return false;
+                        op.warg0 = 0;
+
+                        for (size_t i = 0; i < future_labels.size(); ++i)
+                        {
+                            if (future_labels[i] == label)
+                            {
+                                op.warg0 = i + 1;
+                            }
+                        }
+
+                        if (op.warg0 == 0)
+                        {
+                            op.warg0 = uint32_t(future_labels.size());
+                            future_labels.push_back(label);
+                        }
+                        else
+                        {
+                            --op.warg0;
+                        }
+
+                        op.arg2 = 1;
                     }
 
                     break;
@@ -633,6 +653,35 @@ namespace minivm
             return true;
         }
 
+        bool postprocess_labels()
+        {
+            if (future_labels.size() == 0) return true;
+            for (auto& op : program.opcodes)
+            {
+                switch (op.instruction)
+                {
+                    case instruction::jump:
+                    case instruction::jne:
+                    case instruction::jeq:
+                        if (op.arg2)
+                        {
+                            auto& label = future_labels[op.warg0];
+                            if (!program.labels.count(label))
+                            {
+                                error = "Jump to unknown label " + label;
+                                return false;
+                            }
+
+                            op.warg0 = program.labels[label];
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return true;
+        }
+
         bool parse()
         {
             token tok;
@@ -654,7 +703,7 @@ namespace minivm
                         return false;
                 }
             }
-            return true;
+            return postprocess_labels();
         }
 
         std::unordered_map<std::string, uint32_t> constantMap;
@@ -662,6 +711,7 @@ namespace minivm
         std::string_view source;
         uint64_t offset;
 
+        std::vector<std::string> future_labels;
         std::string_view cur_label;
         program& program;
     };

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <iostream>
 
 #include <minivm/vm.hpp>
 
@@ -19,6 +20,23 @@ int main(int argc, char** argv)
     }
 
     minivm::execution_context executor(program);
-    executor.run_from("main");
+    if (!executor.run_from("main"))
+    {
+        if (executor.get_error())
+        {
+            std::cerr << executor.get_error() << std::endl;
+            return 3;
+        }
+    }
+
+    while (executor.did_yield() && executor.resume())
+    {
+    }
+
+    if (executor.get_error())
+    {
+        std::cerr << executor.get_error() << std::endl;
+        return 3;
+    }
     return 0;
 }

@@ -26,6 +26,7 @@ namespace minivm
         cmp,
         jump,
         jeq,
+        jne,
         Count
     };
 
@@ -138,6 +139,8 @@ namespace minivm
     public:
         const char* get_error();
         bool run_from(const std::string_view& label);
+        bool resume();
+        bool did_yield() const;
 
     private:
         bool run();
@@ -147,5 +150,6 @@ namespace minivm
         vm_execution_registers _registers;
         program& _program;
         std::string _error;
+        bool _did_yield;
     };
 }  // namespace minivm
