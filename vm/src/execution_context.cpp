@@ -74,6 +74,8 @@ namespace minivm
                 case instruction::yield:
                     shouldRun = false;
                     break;
+                case instruction::Count:
+                    break;
             }
             ++_registers.pc;
         }
