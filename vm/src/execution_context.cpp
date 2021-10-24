@@ -5,6 +5,8 @@ namespace minivm
     execution_context::execution_context(program& program)
         : _program(program), _did_yield(false)
     {
+        _registers.sp = 0;
+        _stack.resize(4096);
     }
 
     const char* execution_context::get_error()
@@ -51,6 +53,35 @@ namespace minivm
             auto& code = _program.opcodes[_registers.pc];
             switch (code.instruction)
             {
+                case instruction::salloc:
+                    _error = "salloc instruction not yet implemented";
+                    return false;
+                    break;
+                case instruction::push:
+                    _stack[_registers.sp++] =
+                        _registers.registers[code.reg0].ureg;
+                    break;
+                case instruction::pop:
+                    --_registers.sp;
+                    break;
+                case instruction::loads:
+                    _registers.registers[code.reg0].ureg =
+                        _stack[_registers.sp - code.arg2];
+                    break;
+                case instruction::dloads:
+                    _registers.registers[code.reg0].ureg =
+                        _stack[_registers.sp +
+                               _registers.registers[code.arg0].ireg];
+                    break;
+                case instruction::stores:
+                    _stack[_registers.sp - code.arg2] =
+                        _registers.registers[code.reg0].ureg;
+                    break;
+                case instruction::dstores:
+                    _stack[_registers.sp +
+                           _registers.registers[code.arg0].ireg] =
+                        _registers.registers[code.reg0].ureg;
+                    break;
                 case instruction::loadic:
                     _program.constants[code.warg0].get_i64(
                         _registers.registers[code.arg2].ireg);

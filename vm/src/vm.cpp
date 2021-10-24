@@ -322,6 +322,14 @@ namespace minivm
             return true;
         }
 
+        bool read_opcode_register_arg(uint8_t& target)
+        {
+            uint16_t tg;
+            bool res = read_opcode_register_arg(tg);
+            target = tg;
+            return res;
+        }
+
         bool read_opcode_register_arg(uint16_t& target)
         {
             token rtok;
@@ -372,16 +380,40 @@ namespace minivm
             return true;
         }
 
+        bool read_opcode_u16(uint16_t& target)
+        {
+            token ctok;
+            if (!gettok(ctok))
+            {
+                error = "Expected constant, got EOF";
+                return false;
+            }
+
+            if (!read_number(ctok.source, target))
+            {
+                error = "Expected number, got " + std::string(ctok.source);
+                return false;
+            }
+            return true;
+        }
+
         bool read_opcode(token& instruction)
         {
             // regexr generator
             /*
-            ([A-Za-z]+)
+            ([A-Za-z]+),
             { "$1", instruction::$1 },\n
             */
             static std::unordered_map<std::string_view, minivm::instruction>
                 map = {
                     // Generated
+                    {"salloc", instruction::salloc},
+                    {"push", instruction::push},
+                    {"pop", instruction::pop},
+                    {"stores", instruction::stores},
+                    {"dstores", instruction::dstores},
+                    {"loads", instruction::loads},
+                    {"dloads", instruction::dloads},
                     {"loadic", instruction::loadic},
                     {"loaduc", instruction::loaduc},
                     {"loadfc", instruction::loadfc},
@@ -426,6 +458,25 @@ namespace minivm
 
             switch (op.instruction)
             {
+                case instruction::salloc:
+                    error = "Loading salloc not yet implemented";
+                    return false;
+                    break;
+                case instruction::push:
+                    if (!read_opcode_register_arg(op.reg0)) return false;
+                    break;
+                case instruction::pop:
+                    break;
+                case instruction::dloads:
+                case instruction::dstores:
+                    if (!read_opcode_register_arg(op.reg0)) return false;
+                    if (!read_opcode_register_arg(op.arg2)) return false;
+                    break;
+                case instruction::loads:
+                case instruction::stores:
+                    if (!read_opcode_register_arg(op.reg0)) return false;
+                    if (!read_opcode_u16(op.arg2)) return false;
+                    break;
                 case instruction::loadic:
                 case instruction::loaduc:
                 case instruction::loadfc:

@@ -8,14 +8,27 @@
 
 namespace minivm
 {
-    enum class instruction : uint16_t
+    enum class instruction : uint8_t
     {
+        // stack manip
+        salloc,
+        push,
+        pop,
+
+        stores,
+        dstores,
+        loads,
+        dloads,
+
+        // loads
         loadic,
         loaduc,
         loadfc,
         loadii,
         loaduu,
         loadff,
+
+        // arithmetic
         addi,
         addu,
         addf,
@@ -28,10 +41,14 @@ namespace minivm
         divi,
         divu,
         divf,
+
+        // debug
         printi,
         printu,
         printf,
         printsc,
+
+        // execution
         yield,
         cmp,
         jump,
@@ -67,6 +84,7 @@ namespace minivm
         };
 
         instruction instruction;
+        uint8_t reg0;
     };
 
     struct constant_value
@@ -139,6 +157,7 @@ namespace minivm
         vm_register registers[16];
         uint32_t pc;
         uint32_t cmp;
+        uint32_t sp;
     };
 
     class execution_context
@@ -158,6 +177,7 @@ namespace minivm
 
     private:
         vm_execution_registers _registers;
+        std::vector<uint64_t> _stack;
         program& _program;
         std::string _error;
         bool _did_yield;
