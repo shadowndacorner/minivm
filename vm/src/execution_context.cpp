@@ -87,6 +87,42 @@ namespace minivm
                     _registers.registers[code.arg0].freg +=
                         _registers.registers[code.arg1].freg;
                     break;
+                case instruction::subi:
+                    _registers.registers[code.arg0].ireg -=
+                        _registers.registers[code.arg1].ireg;
+                    break;
+                case instruction::subu:
+                    _registers.registers[code.arg0].ureg -=
+                        _registers.registers[code.arg1].ureg;
+                    break;
+                case instruction::subf:
+                    _registers.registers[code.arg0].freg -=
+                        _registers.registers[code.arg1].freg;
+                    break;
+                case instruction::muli:
+                    _registers.registers[code.arg0].ireg *=
+                        _registers.registers[code.arg1].ireg;
+                    break;
+                case instruction::mulu:
+                    _registers.registers[code.arg0].ureg *=
+                        _registers.registers[code.arg1].ureg;
+                    break;
+                case instruction::mulf:
+                    _registers.registers[code.arg0].freg *=
+                        _registers.registers[code.arg1].freg;
+                    break;
+                case instruction::divi:
+                    _registers.registers[code.arg0].ireg /=
+                        _registers.registers[code.arg1].ireg;
+                    break;
+                case instruction::divu:
+                    _registers.registers[code.arg0].ureg /=
+                        _registers.registers[code.arg1].ureg;
+                    break;
+                case instruction::divf:
+                    _registers.registers[code.arg0].freg /=
+                        _registers.registers[code.arg1].freg;
+                    break;
                 case instruction::printi:
                     printf("%zd\n", _registers.registers[code.arg0].ireg);
                     break;

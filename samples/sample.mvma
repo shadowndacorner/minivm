@@ -2,8 +2,8 @@ $0 s0
 $1 s1
 $10 s10
 
-$a f10.4
-$b f53.2
+$a f2
+$b f2
 
 .main
     loadfc r0 $a
@@ -12,10 +12,11 @@ $b f53.2
     loadic r3 $0
     loadic r4 $10
     loadic r5 $1
-    jump .skip
+    cmp r3 r4
+    jeq .skip
 .loop
-    addf r0 r1
     printf r0
+    mulf r0 r1
     addi r3 r5
     cmp r3 r4
     yield

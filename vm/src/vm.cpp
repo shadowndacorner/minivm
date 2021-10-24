@@ -391,6 +391,15 @@ namespace minivm
                     {"addi", instruction::addi},
                     {"addu", instruction::addu},
                     {"addf", instruction::addf},
+                    {"subi", instruction::subi},
+                    {"subu", instruction::subu},
+                    {"subf", instruction::subf},
+                    {"muli", instruction::muli},
+                    {"mulu", instruction::mulu},
+                    {"mulf", instruction::mulf},
+                    {"divi", instruction::divi},
+                    {"divu", instruction::divu},
+                    {"divf", instruction::divf},
                     {"printi", instruction::printi},
                     {"printu", instruction::printu},
                     {"printf", instruction::printf},
@@ -436,6 +445,15 @@ namespace minivm
                 case instruction::addi:
                 case instruction::addu:
                 case instruction::addf:
+                case instruction::subi:
+                case instruction::subu:
+                case instruction::subf:
+                case instruction::muli:
+                case instruction::mulu:
+                case instruction::mulf:
+                case instruction::divi:
+                case instruction::divu:
+                case instruction::divf:
                 {
                     if (!read_opcode_register_arg(op.arg0)) return false;
                     if (!read_opcode_register_arg(op.arg1)) return false;
