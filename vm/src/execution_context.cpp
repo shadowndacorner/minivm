@@ -132,6 +132,10 @@ namespace minivm
                 case instruction::printf:
                     printf("%f\n", _registers.registers[code.arg0].freg);
                     break;
+                case instruction::printsc:
+                    printf("%s\n",
+                           _program.constants[code.warg0].string_ref().c_str());
+                    break;
                 case instruction::yield:
                     _did_yield = true;
                     shouldRun = false;

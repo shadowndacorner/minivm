@@ -403,6 +403,7 @@ namespace minivm
                     {"printi", instruction::printi},
                     {"printu", instruction::printu},
                     {"printf", instruction::printf},
+                    {"printsc", instruction::printsc},
                     {"yield", instruction::yield},
                     {"cmp", instruction::cmp},
                     {"jump", instruction::jump},
@@ -464,6 +465,11 @@ namespace minivm
                 case instruction::printf:
                 {
                     if (!read_opcode_register_arg(op.arg0)) return false;
+                    break;
+                }
+                case instruction::printsc:
+                {
+                    if (!read_opcode_constant_arg(op.warg0)) return false;
                     break;
                 }
                 case instruction::yield:

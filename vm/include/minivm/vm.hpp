@@ -31,6 +31,7 @@ namespace minivm
         printi,
         printu,
         printf,
+        printsc,
         yield,
         cmp,
         jump,

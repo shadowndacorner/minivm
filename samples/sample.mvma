@@ -1,3 +1,5 @@
+$initprint "Running the thing..."
+$teststr "Gun game maybe?"
 $0 s0
 $1 s1
 $10 s10
@@ -6,6 +8,7 @@ $a f2
 $b f2
 
 .main
+    printsc $initprint
     loadfc r0 $a
     loadfc r1 $b
 
@@ -19,7 +22,6 @@ $b f2
     mulf r0 r1
     addi r3 r5
     cmp r3 r4
-    yield
     jne .loop
 .skip
-    printf r0
+    printsc $teststr
