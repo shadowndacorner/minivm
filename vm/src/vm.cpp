@@ -34,6 +34,11 @@ namespace minivm
         }
     };
 
+    std::string& constant_value::string_ref()
+    {
+        return std::get<std::string>(_value);
+    }
+
     bool constant_value::get_string(std::string_view& out)
     {
         bool match;
@@ -313,7 +318,7 @@ namespace minivm
                 error = "Duplicate label " + str + " detected";
                 return false;
             }
-            program.labels.insert({str, 0});
+            program.labels.insert({str, uint32_t(program.opcodes.size())});
             return true;
         }
 
@@ -380,6 +385,9 @@ namespace minivm
                     {"loadic", instruction::loadic},
                     {"loaduc", instruction::loaduc},
                     {"loadfc", instruction::loadfc},
+                    {"loadii", instruction::loadii},
+                    {"loaduu", instruction::loaduu},
+                    {"loadff", instruction::loadff},
                     {"addi", instruction::addi},
                     {"addu", instruction::addu},
                     {"addf", instruction::addf},
@@ -387,6 +395,9 @@ namespace minivm
                     {"printu", instruction::printu},
                     {"printf", instruction::printf},
                     {"yield", instruction::yield},
+                    {"cmp", instruction::cmp},
+                    {"jump", instruction::jump},
+                    {"jeq", instruction::jeq},
                     // End generated
                 };
 
@@ -412,6 +423,15 @@ namespace minivm
                     if (!read_opcode_constant_arg(op.warg0)) return false;
                     break;
                 }
+                case instruction::cmp:
+                case instruction::loadii:
+                case instruction::loaduu:
+                case instruction::loadff:
+                {
+                    if (!read_opcode_register_arg(op.arg0)) return false;
+                    if (!read_opcode_register_arg(op.arg1)) return false;
+                    break;
+                }
                 case instruction::addi:
                 case instruction::addu:
                 case instruction::addf:
@@ -428,8 +448,40 @@ namespace minivm
                     break;
                 }
                 case instruction::yield:
-                {
                     // No arguments
+                    break;
+                case instruction::jump:
+                case instruction::jeq:
+                {
+                    token labelTok;
+                    if (!gettok(labelTok))
+                    {
+                        error = "Failed to read argument for " +
+                                std::string(instruction.source) + ": EOF";
+                    }
+
+                    if (labelTok.type != token::toktype::label)
+                    {
+                        error = "Expected label for " +
+                                std::string(instruction.source) + ", got " +
+                                std::string(labelTok.source);
+
+                        return false;
+                    }
+
+                    std::string label(labelTok.source);
+                    if (program.labels.count(label))
+                    {
+                        op.warg0 = program.labels[label];
+                    }
+                    else
+                    {
+                        // TODO: Add support for labels that come after the jump
+                        error = "Label for " + std::string(instruction.source) +
+                                " does not exist";
+                        return false;
+                    }
+
                     break;
                 }
                 default:

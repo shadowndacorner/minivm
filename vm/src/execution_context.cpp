@@ -12,24 +12,25 @@ namespace minivm
         return _error.c_str();
     }
 
-    bool execution_context::run_from(const std::string_view& label)
+    bool execution_context::jump(const std::string& label)
     {
-        // TODO: Do this without temporary allocation (we should be using a
-        // string table rather than a map of strings)
-
-        std::string temp(label);
-        if (!_program.labels.count(temp))
+        if (!_program.labels.count(label))
         {
-            _error = "Unknown label " + temp;
+            _error = "Unknown label " + label;
             return false;
         }
 
-        _registers.pc = _program.labels[temp];
-        run();
+        _registers.pc = _program.labels[label];
         return true;
     }
 
-    void execution_context::run()
+    bool execution_context::run_from(const std::string_view& label)
+    {
+        if (!jump(std::string(label))) return false;
+        return run();
+    }
+
+    bool execution_context::run()
     {
         bool shouldRun = true;
         size_t pSize = _program.opcodes.size();
@@ -49,6 +50,18 @@ namespace minivm
                 case instruction::loadfc:
                     _program.constants[code.warg0].get_f64(
                         _registers.registers[code.arg2].freg);
+                    break;
+                case instruction::loadii:
+                    _registers.registers[code.arg0].ireg =
+                        _registers.registers[code.arg1].ireg;
+                    break;
+                case instruction::loaduu:
+                    _registers.registers[code.arg0].ureg =
+                        _registers.registers[code.arg1].ureg;
+                    break;
+                case instruction::loadff:
+                    _registers.registers[code.arg0].freg =
+                        _registers.registers[code.arg1].freg;
                     break;
                 case instruction::addi:
                     _registers.registers[code.arg0].ireg +=
@@ -74,11 +87,27 @@ namespace minivm
                 case instruction::yield:
                     shouldRun = false;
                     break;
+                case instruction::cmp:
+                    _registers.cmp = _registers.registers[code.arg1].ireg -
+                                     _registers.registers[code.arg0].ireg;
+                    break;
+                case instruction::jump:
+                    // Subtracting 1 because we increment pc after
+                    _registers.pc = code.warg0 - 1;
+                    break;
+                case instruction::jeq:
+                    if (!_registers.cmp)
+                    {
+                        // Subtracting 1 because we increment pc after
+                        _registers.pc = code.warg0 - 1;
+                    }
+                    break;
                 case instruction::Count:
                     break;
             }
             ++_registers.pc;
         }
+        return true;
     }
 
 }  // namespace minivm

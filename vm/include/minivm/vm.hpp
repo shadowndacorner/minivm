@@ -13,6 +13,9 @@ namespace minivm
         loadic,
         loaduc,
         loadfc,
+        loadii,
+        loaduu,
+        loadff,
         addi,
         addu,
         addf,
@@ -20,6 +23,9 @@ namespace minivm
         printu,
         printf,
         yield,
+        cmp,
+        jump,
+        jeq,
         Count
     };
 
@@ -54,6 +60,7 @@ namespace minivm
 
     struct constant_value
     {
+        std::string& string_ref();
         bool get_string(std::string_view&);
         bool get_i64(int64_t&);
         bool get_u64(uint64_t&);
@@ -119,7 +126,8 @@ namespace minivm
     struct vm_execution_registers
     {
         vm_register registers[16];
-        uint64_t pc;
+        uint32_t pc;
+        uint32_t cmp;
     };
 
     class execution_context
@@ -132,7 +140,8 @@ namespace minivm
         bool run_from(const std::string_view& label);
 
     private:
-        void run();
+        bool run();
+        bool jump(const std::string& label);
 
     private:
         vm_execution_registers _registers;

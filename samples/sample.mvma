@@ -5,7 +5,13 @@ $ftest f-10.50002
 $10 s-10
 
 .main
-    loaduc r0 $0
-    loadic r1 $10
-    addi r0 r1
-    printi r0
+    loadfc r0 $ftest
+    loadfc r1 $ftest
+    addf r0 r1
+    loadff r4 r0
+    printf r4
+.loop
+    cmp r0 r4
+    addf r0 r1
+    printf r0
+    jeq .loop
