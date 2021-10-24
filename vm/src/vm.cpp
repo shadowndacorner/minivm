@@ -1,10 +1,12 @@
-#include <eh.h>
 #include <stdint.h>
+#include <charconv>
 #include <fstream>
-#include <minivm/vm.hpp>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <variant>
+
+#include <minivm/vm.hpp>
 
 namespace minivm
 {
@@ -57,7 +59,7 @@ namespace minivm
         return match;
     }
 
-    bool constant_value::as_f64(double& out)
+    bool constant_value::get_f64(double& out)
     {
         bool match;
         cvalue_variant_visitor<double> visitor(match, out);
@@ -85,7 +87,7 @@ namespace minivm
         return c == 'f';
     }
 
-    static bool is_string_start(char c)
+    static bool is_string_terminal(char c)
     {
         return c == '"';
     }
@@ -105,10 +107,15 @@ namespace minivm
         return c == '#';
     }
 
+    static bool is_numeric(char c)
+    {
+        return c >= '0' && c <= '9';
+    }
+
     struct asm_parser
     {
         asm_parser(program& prog, const std::string_view& source)
-            : source(source), program(prog), cur_opcode(0), offset(0)
+            : source(source), program(prog), offset(0)
         {
         }
 
@@ -124,6 +131,16 @@ namespace minivm
             return source[offset++];
         }
 
+        void skip_whitespace()
+        {
+            char peek = peekchar();
+            while (is_whitespace(peek))
+            {
+                getchar();
+                peek = peekchar();
+            }
+        }
+
         struct token
         {
             enum class toktype
@@ -134,10 +151,104 @@ namespace minivm
             } type;
 
             std::string_view source;
-            int64_t cintval;
         };
 
-        std::string_view read_constant_string() {}
+        bool handle_escape_sequence(std::string& out)
+        {
+            char c = getchar();
+            if (c == 'x')
+            {
+                uint32_t start = offset;
+                while ((c = peekchar()) && is_numeric(c))
+                {
+                    getchar();
+                }
+
+                std::string_view str = source.substr(start, offset - start);
+                auto res =
+                    std::from_chars(str.data(), str.data() + str.size(), c);
+                if (res.ec == std::errc())
+                {
+                    out += c;
+                    return true;
+                }
+                else
+                {
+                    switch (res.ec)
+                    {
+                        case std::errc::invalid_argument:
+                            error = "Escape sequence [\\x" + std::string(str) +
+                                    "] is not a valid number";
+                            break;
+                        case std::errc::result_out_of_range:
+                            error = "Escape sequence [\\x" + std::string(str) +
+                                    "] is larger than would fit in a char";
+                            break;
+                        default:
+                            error = "Escape sequence [\\x" + std::string(str) +
+                                    "] invalid with unknown error";
+                            break;
+                    }
+                }
+            }
+            else if (c == 'n')
+            {
+                out += '\n';
+                return true;
+            }
+
+            out += c;
+            return true;
+        }
+
+        bool read_constant_string(std::string& out)
+        {
+            out.clear();
+
+            // Reserve 64 chars to start with
+            out.reserve(64);
+
+            char c = getchar();
+            if (!c)
+            {
+                error = "Reached EOF";
+                return false;
+            }
+
+            uint32_t start;
+            if (is_string_terminal(c))
+            {
+                start = offset;
+            }
+            else
+            {
+                error =
+                    "Attempted to read constant string that did not begin with "
+                    "string terminal";
+                return false;
+            }
+
+            while ((c = getchar()))
+            {
+                if (c == '\\')
+                {
+                    if (!handle_escape_sequence(out))
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+
+                if (is_string_terminal(c))
+                {
+                    return true;
+                }
+
+                out += c;
+            }
+            error = "Reached EOF";
+            return false;
+        }
 
         std::string_view read_ident_source(int32_t toff)
         {
@@ -178,6 +289,7 @@ namespace minivm
                     tok.source = read_ident_source(0);
                     return true;
                 }
+
                 if (is_label_start(c))
                 {
                     tok.type = token::toktype::label;
@@ -205,36 +317,268 @@ namespace minivm
             return true;
         }
 
+        bool read_opcode_register_arg(uint16_t& target)
+        {
+            token rtok;
+            if (!gettok(rtok))
+            {
+                error = "Expected register, got EOF";
+                return false;
+            }
+
+            uint8_t reg;
+            if (rtok.source[0] != 'r')
+            {
+                error = "Expected register, got " + std::string(rtok.source);
+                return false;
+            }
+
+            if (!read_number(rtok.source.substr(1), reg))
+            {
+                error = "Invalid register index " + std::string(rtok.source);
+                return false;
+            }
+
+            target = reg;
+            return true;
+        }
+
+        bool read_opcode_constant_arg(uint32_t& target)
+        {
+            token ctok;
+            if (!gettok(ctok))
+            {
+                error = "Expected constant, got EOF";
+                return false;
+            }
+
+            std::string_view constant = ctok.source;
+
+            std::string ctokSrc(ctok.source);
+            if (!constantMap.count(ctokSrc))
+            {
+                error =
+                    "Instruction attempted to use unknown "
+                    "constant [" +
+                    ctokSrc + "]";
+                return false;
+            }
+            target = constantMap[ctokSrc];
+            return true;
+        }
+
         bool read_opcode(token& instruction)
         {
-            // regexr
+            // regexr generator
             /*
             ([A-Za-z]+)
             { "$1", instruction::$1 },\n
             */
-            static std::unordered_map<std::string, minivm::instruction> map = {
-                {"load", instruction::load},
-                {"add", instruction::add},
-                {"printi", instruction::printi},
-                {"jump", instruction::jump}};
+            static std::unordered_map<std::string_view, minivm::instruction>
+                map = {
+                    // Generated
+                    {"loadic", instruction::loadic},
+                    {"loaduc", instruction::loaduc},
+                    {"loadfc", instruction::loadfc},
+                    {"addi", instruction::addi},
+                    {"addu", instruction::addu},
+                    {"addf", instruction::addf},
+                    {"printi", instruction::printi},
+                    {"printu", instruction::printu},
+                    {"printf", instruction::printf},
+                    {"yield", instruction::yield},
+                    // End generated
+                };
 
-            error = "Unknown instruction " + std::string(instruction.source);
-            return false;
-        }
-
-        bool read_constant(token& name)
-        {
-            token value;
-            if (!gettok(value))
+            opcode op;
+            if (map.count(instruction.source))
             {
-                error = "Failed to read constant [" + std::string(name.source) +
-                        "]: " + (is_eof() ? "Reached EOF" : error);
+                op.instruction = map[instruction.source];
+            }
+            else
+            {
+                error =
+                    "Unknown instruction " + std::string(instruction.source);
                 return false;
             }
 
-            error = "Failed to read constant [" + std::string(name.source) +
-                    "]: Value had unknown type";
+            switch (op.instruction)
+            {
+                case instruction::loadic:
+                case instruction::loaduc:
+                case instruction::loadfc:
+                {
+                    if (!read_opcode_register_arg(op.arg2)) return false;
+                    if (!read_opcode_constant_arg(op.warg0)) return false;
+                    break;
+                }
+                case instruction::addi:
+                case instruction::addu:
+                case instruction::addf:
+                {
+                    if (!read_opcode_register_arg(op.arg0)) return false;
+                    if (!read_opcode_register_arg(op.arg1)) return false;
+                    break;
+                }
+                case instruction::printi:
+                case instruction::printu:
+                case instruction::printf:
+                {
+                    if (!read_opcode_register_arg(op.arg0)) return false;
+                    break;
+                }
+                case instruction::yield:
+                {
+                    // No arguments
+                    break;
+                }
+                default:
+                {
+                    error = "Loader for instruction " +
+                            std::string(instruction.source) +
+                            " not implemented";
+                    return false;
+                }
+            }
+
+            program.opcodes.push_back(op);
+            return true;
+        }
+
+        template <typename T>
+        inline bool read_number(const std::string_view& str, T& result)
+        {
+            auto res =
+                std::from_chars(str.data(), str.data() + str.size(), result);
+
+            if (res.ec == std::errc())
+            {
+                return true;
+            }
+            else
+            {
+                switch (res.ec)
+                {
+                    case std::errc::invalid_argument:
+                        error = "Escape sequence [\\x" + std::string(str) +
+                                "] is not a valid number";
+                        break;
+                    case std::errc::result_out_of_range:
+                        error = "Escape sequence [\\x" + std::string(str) +
+                                "] is larger than would fit in a char";
+                        break;
+                    default:
+                        error = "Escape sequence [\\x" + std::string(str) +
+                                "] invalid with unknown error";
+                        break;
+                }
+            }
             return false;
+        }
+
+        template <typename T>
+        inline bool read_numeric_constant_value(constant_value& val)
+        {
+            getchar();
+            T result;
+            uint32_t start = offset;
+
+            char peeked;
+            while ((peeked = peekchar()) && !is_whitespace(peeked))
+            {
+                getchar();
+            }
+
+            auto str = source.substr(start, offset - start);
+            auto res =
+                std::from_chars(str.data(), str.data() + str.size(), result);
+
+            if (res.ec == std::errc())
+            {
+                val.set(result);
+                return true;
+            }
+            else
+            {
+                switch (res.ec)
+                {
+                    case std::errc::invalid_argument:
+                        error = "Escape sequence [\\x" + std::string(str) +
+                                "] is not a valid number";
+                        break;
+                    case std::errc::result_out_of_range:
+                        error = "Escape sequence [\\x" + std::string(str) +
+                                "] is larger than would fit in a char";
+                        break;
+                    default:
+                        error = "Escape sequence [\\x" + std::string(str) +
+                                "] invalid with unknown error";
+                        break;
+                }
+            }
+            return false;
+        }
+
+        bool read_constant(token& nameTok)
+        {
+            std::string name = std::string(nameTok.source);
+
+            if (constantMap.count(name))
+            {
+                error = "Constant redefinition: [" + name + "] already exists";
+                return false;
+            }
+
+            skip_whitespace();
+
+            constant_value val;
+
+            char peeked = peekchar();
+            if (!peeked)
+            {
+                error = "Failed to read constant [" + name + "]: EOF";
+                return false;
+            }
+
+            bool success = false;
+
+            if (is_string_terminal(peeked))
+            {
+                std::string str;
+                if (!read_constant_string(str))
+                {
+                    error = "Failed to read constant [" + name + "]: " + error;
+
+                    return false;
+                }
+                val.move(std::move(str));
+                success = true;
+            }
+            // TODO: Clean the following up
+            else if (is_unsigned_start(peeked))
+            {
+                success = read_numeric_constant_value<uint64_t>(val);
+            }
+            else if (is_signed_start(peeked))
+            {
+                success = read_numeric_constant_value<int64_t>(val);
+            }
+            else if (is_float_start(peeked))
+            {
+                success = read_numeric_constant_value<double>(val);
+            }
+
+            if (!success)
+            {
+                error = "Failed to read constant [" + name + "]: " +
+                        (error.size() == 0 ? "Value had unknown type" : error);
+
+                return false;
+            }
+
+            constantMap.insert({name, uint32_t(program.constants.size())});
+            program.constants.push_back(val);
+            return true;
         }
 
         bool parse()
@@ -261,11 +605,11 @@ namespace minivm
             return true;
         }
 
+        std::unordered_map<std::string, uint32_t> constantMap;
         std::string error;
         std::string_view source;
         uint64_t offset;
 
-        uint32_t cur_opcode;
         std::string_view cur_label;
         program& program;
     };

@@ -17,5 +17,8 @@ int main(int argc, char** argv)
                 program.get_load_error());
         return 2;
     }
+
+    minivm::execution_context executor(program);
+    executor.run_from("main");
     return 0;
 }

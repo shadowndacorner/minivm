@@ -12,6 +12,7 @@
             "args": [
                 "samples/sample.mvma"
             ],
+            "preLaunchTask": "Build REPL",
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],

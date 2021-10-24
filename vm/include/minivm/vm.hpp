@@ -10,10 +10,16 @@ namespace minivm
 {
     enum class instruction : uint16_t
     {
-        load,
-        add,
+        loadic,
+        loaduc,
+        loadfc,
+        addi,
+        addu,
+        addf,
         printi,
-        jump,
+        printu,
+        printf,
+        yield,
         Count
     };
 
@@ -51,12 +57,32 @@ namespace minivm
         bool get_string(std::string_view&);
         bool get_i64(int64_t&);
         bool get_u64(uint64_t&);
-        bool as_f64(double&);
+        bool get_f64(double&);
 
-        template <typename T>
-        inline void set(const T& value)
+        inline void set(int64_t value)
         {
             _value = value;
+        }
+
+        inline void set(uint64_t value)
+        {
+            _value = value;
+        }
+
+        inline void set(double value)
+        {
+            _value = value;
+        }
+
+        inline void set(const std::string_view& value)
+        {
+            _value = std::string(value);
+        }
+
+        inline void move(std::string&& value)
+        {
+            auto& val = std::get<std::string>(_value);
+            val.swap(value);
         }
 
     private:
@@ -66,6 +92,7 @@ namespace minivm
     class program
     {
         friend class asm_parser;
+        friend class execution_context;
 
     public:
         bool load_assembly(const std::string_view& mvmaSrc);
@@ -85,13 +112,14 @@ namespace minivm
         {
             int64_t ireg;
             uint64_t ureg;
-            double dreg;
+            double freg;
         };
     };
 
     struct vm_execution_registers
     {
         vm_register registers[16];
+        uint64_t pc;
     };
 
     class execution_context
@@ -99,6 +127,16 @@ namespace minivm
     public:
         execution_context(program& program);
 
+    public:
+        const char* get_error();
+        bool run_from(const std::string_view& label);
+
     private:
+        void run();
+
+    private:
+        vm_execution_registers _registers;
+        program& _program;
+        std::string _error;
     };
 }  // namespace minivm
