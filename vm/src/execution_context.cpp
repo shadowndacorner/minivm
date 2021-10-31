@@ -6,7 +6,7 @@ namespace minivm
         : _program(program), _did_yield(false)
     {
         _registers.sp = 0;
-        _stack.resize(4096);
+        _stack.reserve(4096);
     }
 
     const char* execution_context::get_error()
@@ -15,22 +15,52 @@ namespace minivm
         return _error.c_str();
     }
 
-    bool execution_context::jump(const std::string& label)
+    bool execution_context::run_from(const std::string_view& label)
     {
-        if (!_program.labels.count(label))
+        std::string copy = std::string(label);
+        if (!_program.label_map.count(copy))
         {
-            _error = "Unknown label " + label;
+            _error = "Unknown label " + copy;
             return false;
         }
 
-        _registers.pc = _program.labels[label];
-        return true;
+        call(_program.get_label_id(label));
+
+        // Countering the -1 in jump
+        ++_registers.pc;
+
+        return run();
     }
 
-    bool execution_context::run_from(const std::string_view& label)
+    void execution_context::call(program_label_id labelId)
     {
-        if (!jump(std::string(label))) return false;
-        return run();
+        auto& label = _program.get_label(labelId);
+
+        _callStack.push_back({});
+        auto& frame = _callStack.back();
+        frame.state = _registers;
+        frame.label = labelId.idx;
+
+        jump(label);
+
+        if (label.stackalloc > 0)
+        {
+            auto tgSize = _registers.sp + label.stackalloc;
+            _registers.sp = uint32_t(_stack.size());
+            _stack.resize(tgSize);
+        }
+    }
+
+    void execution_context::jump(program_label_id labelId)
+    {
+        auto& label = _program.get_label(labelId);
+        jump(label);
+    }
+
+    void execution_context::jump(const program_label& label)
+    {
+        // Subtracting 1 because we increment pc after
+        _registers.pc = label.pc - 1;
     }
 
     bool execution_context::resume()
@@ -56,7 +86,7 @@ namespace minivm
                 case instruction::loadc:
                 {
                     _registers.registers[code.reg0] =
-                        _program.constants[code.sarg1].value;
+                        _program.constants[code.arg1].value;
                     break;
                 }
                 case instruction::stores:
@@ -200,30 +230,45 @@ namespace minivm
                     break;
                 case instruction::jump:
                     // Subtracting 1 because we increment pc after
-                    _registers.pc = code.warg0 - 1;
+                    jump(code.warg0);
                     break;
                 case instruction::jeq:
                     if (!_registers.cmp)
                     {
                         // Subtracting 1 because we increment pc after
-                        _registers.pc = code.warg0 - 1;
+                        jump(code.warg0);
                     }
                     break;
                 case instruction::jne:
                     if (_registers.cmp)
                     {
                         // Subtracting 1 because we increment pc after
-                        _registers.pc = code.warg0 - 1;
+                        jump(code.warg0);
                     }
                     break;
+                case instruction::call:
+                {
+                    call(code.warg0);
+                    break;
+                }
                 case instruction::yield:
+                {
                     _did_yield = true;
                     shouldRun = false;
                     break;
+                }
                 case instruction::ret:
-                    // TODO: More logic here.  Pop off a stack frame.
-                    shouldRun = false;
+                {
+                    auto frame = _callStack.back();
+                    _callStack.pop_back();
+                    _registers = frame.state;
+
+                    if (_callStack.size() == 0)
+                    {
+                        shouldRun = false;
+                    }
                     break;
+                }
                 case instruction::Count:
                     break;
             }

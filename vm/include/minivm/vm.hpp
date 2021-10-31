@@ -55,6 +55,7 @@ namespace minivm
         jne,
 
         // execution
+        call,
         yield,
         ret,
 
@@ -74,7 +75,7 @@ namespace minivm
             };
             uint32_t warg0;
         };
-        uint16_t sarg1;
+        uint16_t arg1;
         instruction instruction;
     };
 
@@ -112,6 +113,29 @@ namespace minivm
         }
     };
 
+    struct program_label
+    {
+        union
+        {
+            uint64_t offset;
+            const char* name;
+        };
+
+        uint32_t pc;
+        uint32_t stackalloc;
+    };
+
+    struct program_label_id
+    {
+        program_label_id() = default;
+        program_label_id(const program_label_id&) = default;
+        program_label_id& operator=(const program_label_id&) = default;
+
+        inline program_label_id(uint32_t id) : idx(id) {}
+
+        uint32_t idx;
+    };
+
     class program
     {
         friend class asm_parser;
@@ -123,11 +147,18 @@ namespace minivm
         const char* get_load_error();
 
     private:
+        uint32_t write_static_string(const std::string_view& string);
+        program_label_id get_label_id(const std::string_view& label);
+        program_label& get_label(const std::string_view& label);
+        program_label& get_label(program_label_id);
+
+    private:
         std::string load_error;
         std::vector<char> _data;
         std::vector<constant_value> constants;
         std::vector<opcode> opcodes;
-        std::unordered_map<std::string, uint32_t> labels;
+        std::unordered_map<std::string, program_label_id> label_map;
+        std::vector<program_label> labels;
     };
 
     struct vm_execution_registers
@@ -140,9 +171,10 @@ namespace minivm
 
     struct stack_frame
     {
+        // This is more expensive than it needs to be, but it's a simple way of
+        // doing this.
+        vm_execution_registers state;
         uint32_t label;
-        uint32_t pc;
-        uint32_t stack_baseptr;
     };
 
     class execution_context
@@ -158,7 +190,9 @@ namespace minivm
 
     private:
         bool run();
-        bool jump(const std::string& label);
+        void call(program_label_id label);
+        void jump(program_label_id label);
+        void jump(const program_label& label);
 
     private:
         vm_execution_registers _registers;

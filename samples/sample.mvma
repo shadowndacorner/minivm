@@ -24,6 +24,8 @@ $b f2
     itof r0 r0
     itof r1 r1
 
+    call .function
+
     printf r0
     printf r1
 
@@ -37,3 +39,9 @@ $b f2
 
     loadc r0 $teststr
     prints r0
+    ret
+
+.function
+    loadc r0 $initprint
+    prints r0
+    ret

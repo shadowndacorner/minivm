@@ -256,12 +256,42 @@ namespace minivm
         bool read_label(token& label)
         {
             std::string str(label.source);
-            if (program.labels.count(str))
+            if (program.label_map.count(str))
             {
                 error = "Duplicate label " + str + " detected";
                 return false;
             }
-            program.labels.insert({str, uint32_t(program.opcodes.size())});
+
+            program_label newLabel;
+            newLabel.offset = program.write_static_string(label.source);
+            newLabel.pc = program.opcodes.size();
+            newLabel.stackalloc = 0;
+
+            // Check to see if a number is next
+            skip_whitespace();
+            if (is_numeric(peekchar()))
+            {
+                token numtok;
+                if (!gettok(numtok))
+                {
+                    error =
+                        "Unexpected EOF while reading stackalloc for label " +
+                        str;
+                    return false;
+                }
+
+                if (!read_number(numtok.source, newLabel.stackalloc))
+                {
+                    error = "Failed to read stackalloc for label " + str +
+                            " - " + error;
+                    return false;
+                }
+            }
+
+            program.labels.push_back(newLabel);
+            program.label_map.insert(
+                {str, uint32_t(program.labels.size() - 1)});
+
             return true;
         }
 
@@ -335,6 +365,71 @@ namespace minivm
             return true;
         }
 
+        bool read_opcode_label(uint32_t& target)
+        {
+            token labelTok;
+            if (!gettok(labelTok))
+            {
+                error = "EOF";
+            }
+
+            if (labelTok.type != token::toktype::label)
+            {
+                error = "Expected label, got " + std::string(labelTok.source);
+                return false;
+            }
+
+            std::string label(labelTok.source);
+            if (program.label_map.count(label))
+            {
+                target = program.get_label_id(label).idx;
+            }
+            else
+            {
+                target = 0;
+
+                for (size_t i = 0; i < future_labels.size(); ++i)
+                {
+                    if (future_labels[i] == label)
+                    {
+                        target = i + 1;
+                        break;
+                    }
+                }
+
+                if (target == 0)
+                {
+                    target = uint32_t(future_labels.size());
+                    future_labels.push_back(label);
+                }
+                else
+                {
+                    --target;
+                }
+                target |= (1 << 31);
+            }
+            return true;
+        }
+
+        template <typename T>
+        bool read_opcode_number_value(T& target)
+        {
+            token labelTok;
+            if (!gettok(labelTok))
+            {
+                error = "EOF";
+            }
+
+            if (labelTok.type != token::toktype::label)
+            {
+                error = "Expected number, got " + std::string(labelTok.source);
+                return false;
+            }
+
+            if (!read_number(labelTok.source, target)) return false;
+            return true;
+        }
+
         bool read_opcode(token& instruction)
         {
             // regexr generator
@@ -373,11 +468,13 @@ namespace minivm
                     {"printu", instruction::printu},
                     {"printf", instruction::printf},
                     {"prints", instruction::prints},
-                    {"yield", instruction::yield},
                     {"cmp", instruction::cmp},
                     {"jump", instruction::jump},
                     {"jeq", instruction::jeq},
                     {"jne", instruction::jne},
+                    {"call", instruction::call},
+                    {"yield", instruction::yield},
+                    {"ret", instruction::ret},
                     // End generated
                 };
 
@@ -400,7 +497,7 @@ namespace minivm
                     op.reg0 = read_opcode_register_arg(success);
                     if (!success) return false;
 
-                    if (!read_opcode_constant_arg(op.sarg1)) return false;
+                    if (!read_opcode_constant_arg(op.arg1)) return false;
                     break;
                 case instruction::loads:
                 case instruction::stores:
@@ -477,61 +574,20 @@ namespace minivm
                     break;
                 }
 
-                case instruction::yield:
-                    // No arguments
-                    break;
                 case instruction::jump:
                 case instruction::jne:
                 case instruction::jeq:
                 {
-                    token labelTok;
-                    if (!gettok(labelTok))
-                    {
-                        error = "Failed to read argument for " +
-                                std::string(instruction.source) + ": EOF";
-                    }
-
-                    if (labelTok.type != token::toktype::label)
-                    {
-                        error = "Expected label for " +
-                                std::string(instruction.source) + ", got " +
-                                std::string(labelTok.source);
-
-                        return false;
-                    }
-
-                    std::string label(labelTok.source);
-                    if (program.labels.count(label))
-                    {
-                        op.warg0 = program.labels[label];
-                        op.sarg1 = 0;
-                    }
-                    else
-                    {
-                        op.warg0 = 0;
-                        op.sarg1 = 1;
-
-                        for (size_t i = 0; i < future_labels.size(); ++i)
-                        {
-                            if (future_labels[i] == label)
-                            {
-                                op.warg0 = i + 1;
-                            }
-                        }
-
-                        if (op.warg0 == 0)
-                        {
-                            op.warg0 = uint32_t(future_labels.size());
-                            future_labels.push_back(label);
-                        }
-                        else
-                        {
-                            --op.warg0;
-                        }
-                    }
-
+                    if (!read_opcode_label(op.warg0)) return false;
                     break;
                 }
+                case instruction::call:
+                    if (!read_opcode_label(op.warg0)) return false;
+                    break;
+                case instruction::yield:
+                case instruction::ret:
+                    // No arguments
+                    break;
                 case instruction::Count:
                 {
                     error = "Loader for instruction " +
@@ -660,19 +716,7 @@ namespace minivm
                 else
                 {
                     // Copy if it isn't in the string table
-                    size_t pos = program._data.size();
-                    size_t start = pos;
-                    program._data.resize(program._data.size() + str.size() + 1);
-
-                    // Copy string content
-                    for (size_t i = 0; i < str.size(); ++i)
-                    {
-                        program._data[pos++] = str[i];
-                    }
-
-                    // Null terminate
-                    program._data[pos] = 0;
-
+                    auto start = program.write_static_string(str);
                     val.value.ureg = start;
                     constantStringTable[str] = start;
                 }
@@ -707,24 +751,35 @@ namespace minivm
 
         bool postprocess_labels()
         {
+            for (auto& label : program.labels)
+            {
+                label.name = &program._data[label.offset];
+            }
+            return true;
+        }
+
+        bool postprocess_label_references()
+        {
             if (future_labels.size() == 0) return true;
             for (auto& op : program.opcodes)
             {
                 switch (op.instruction)
                 {
+                    case instruction::call:
                     case instruction::jump:
                     case instruction::jne:
                     case instruction::jeq:
-                        if (op.sarg1)
+                        if (op.warg0 & (1 << 31))
                         {
+                            op.warg0 &= ~(1 << 31);
+
                             auto& label = future_labels[op.warg0];
-                            if (!program.labels.count(label))
+                            if (!program.label_map.count(label))
                             {
                                 error = "Jump to unknown label " + label;
                                 return false;
                             }
-                            op.warg0 = program.labels[label];
-                            op.sarg1 = 0;
+                            op.warg0 = program.get_label_id(label).idx;
                         }
                         break;
                     default:
@@ -771,7 +826,8 @@ namespace minivm
                         return false;
                 }
             }
-            return postprocess_labels() && postprocess_constant_values();
+            return postprocess_labels() && postprocess_label_references() &&
+                   postprocess_constant_values();
         }
 
         std::unordered_map<std::string, uint64_t> constantStringTable;
@@ -821,6 +877,38 @@ namespace minivm
     const char* program::get_load_error()
     {
         return load_error.c_str();
+    }
+
+    uint32_t program::write_static_string(const std::string_view& str)
+    {
+        uint32_t pos = _data.size();
+        uint32_t start = pos;
+        _data.resize(_data.size() + str.size() + 1);
+
+        // Copy string content
+        for (uint32_t i = 0; i < str.size(); ++i)
+        {
+            _data[pos++] = str[i];
+        }
+
+        // Null terminate
+        _data[pos] = 0;
+        return start;
+    }
+
+    program_label_id program::get_label_id(const std::string_view& label)
+    {
+        return label_map[std::string(label)];
+    }
+
+    program_label& program::get_label(const std::string_view& label)
+    {
+        return get_label(get_label_id(label));
+    }
+
+    program_label& program::get_label(program_label_id id)
+    {
+        return labels[id.idx];
     }
 
 }  // namespace minivm
