@@ -12,8 +12,23 @@ namespace minivm
     {
         loadc,
 
-        stores,
-        loads,
+        sstore,
+        sstoreu32,
+        sstoreu16,
+        sstoreu8,
+        sstorei32,
+        sstorei16,
+        sstorei8,
+        sstoref32,
+
+        sload,
+        sloadu32,
+        sloadu16,
+        sloadu8,
+        sloadi32,
+        sloadi16,
+        sloadi8,
+        sloadf32,
 
         // loads
         loadi,

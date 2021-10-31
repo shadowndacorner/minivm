@@ -89,20 +89,120 @@ namespace minivm
                         _program.constants[code.arg1].value;
                     break;
                 }
-                case instruction::stores:
+                case instruction::sstore:
                 {
                     *reinterpret_cast<uint64_t*>(
                         &_stack[_registers.registers[code.reg1].ureg]) =
                         _registers.registers[code.reg0].ureg;
                     break;
                 }
-                case instruction::loads:
+                case instruction::sstoreu32:
+                {
+                    *reinterpret_cast<uint32_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].ureg;
+                    break;
+                }
+                case instruction::sstoreu16:
+                {
+                    *reinterpret_cast<uint16_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].ureg;
+                    break;
+                }
+                case instruction::sstoreu8:
+                {
+                    *reinterpret_cast<uint8_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].ureg;
+                    break;
+                }
+                case instruction::sstorei32:
+                {
+                    *reinterpret_cast<int32_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].ireg;
+                    break;
+                }
+                case instruction::sstorei16:
+                {
+                    *reinterpret_cast<int16_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].ireg;
+                    break;
+                }
+                case instruction::sstorei8:
+                {
+                    *reinterpret_cast<int8_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].ireg;
+                    break;
+                }
+                case instruction::sstoref32:
+                {
+                    *reinterpret_cast<float*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
+                        _registers.registers[code.reg0].freg;
+                    break;
+                }
+
+                case instruction::sload:
                 {
                     _registers.registers[code.reg0].ureg =
                         *reinterpret_cast<uint64_t*>(
                             &_stack[_registers.registers[code.reg1].ureg]);
                     break;
                 }
+                case instruction::sloadu32:
+                {
+                    _registers.registers[code.reg0].ureg =
+                        *reinterpret_cast<uint32_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+                case instruction::sloadu16:
+                {
+                    _registers.registers[code.reg0].ureg =
+                        *reinterpret_cast<uint16_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+                case instruction::sloadu8:
+                {
+                    _registers.registers[code.reg0].ureg =
+                        *reinterpret_cast<uint8_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+                case instruction::sloadi32:
+                {
+                    _registers.registers[code.reg0].ireg =
+                        *reinterpret_cast<int32_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+                case instruction::sloadi16:
+                {
+                    _registers.registers[code.reg0].ireg =
+                        *reinterpret_cast<int16_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+                case instruction::sloadi8:
+                {
+                    _registers.registers[code.reg0].ireg =
+                        *reinterpret_cast<int8_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+                case instruction::sloadf32:
+                {
+                    _registers.registers[code.reg0].freg =
+                        *reinterpret_cast<float*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
+                    break;
+                }
+
                 case instruction::utoi:
                 {
                     _registers.registers[code.reg0].ireg =

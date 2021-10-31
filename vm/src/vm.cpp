@@ -434,15 +434,29 @@ namespace minivm
         {
             // regexr generator
             /*
-            ([A-Za-z]+),
+            ([A-Za-z0-9]+),
             { "$1", instruction::$1 },\n
             */
             static std::unordered_map<std::string_view, minivm::instruction>
                 map = {
                     // Generated
                     {"loadc", instruction::loadc},
-                    {"stores", instruction::stores},
-                    {"loads", instruction::loads},
+                    {"sstore", instruction::sstore},
+                    {"sstoreu32", instruction::sstoreu32},
+                    {"sstoreu16", instruction::sstoreu16},
+                    {"sstoreu8", instruction::sstoreu8},
+                    {"sstorei32", instruction::sstorei32},
+                    {"sstorei16", instruction::sstorei16},
+                    {"sstorei8", instruction::sstorei8},
+                    {"sstoref32", instruction::sstoref32},
+                    {"sload", instruction::sload},
+                    {"sloadu32", instruction::sloadu32},
+                    {"sloadu16", instruction::sloadu16},
+                    {"sloadu8", instruction::sloadu8},
+                    {"sloadi32", instruction::sloadi32},
+                    {"sloadi16", instruction::sloadi16},
+                    {"sloadi8", instruction::sloadi8},
+                    {"sloadf32", instruction::sloadf32},
                     {"loadi", instruction::loadi},
                     {"loadu", instruction::loadu},
                     {"loadf", instruction::loadf},
@@ -499,14 +513,27 @@ namespace minivm
 
                     if (!read_opcode_constant_arg(op.arg1)) return false;
                     break;
-                case instruction::loads:
-                case instruction::stores:
+                case instruction::sstore:
+                case instruction::sstoreu32:
+                case instruction::sstoreu16:
+                case instruction::sstoreu8:
+                case instruction::sstorei32:
+                case instruction::sstorei16:
+                case instruction::sstorei8:
+                case instruction::sstoref32:
+                case instruction::sload:
+                case instruction::sloadu32:
+                case instruction::sloadu16:
+                case instruction::sloadu8:
+                case instruction::sloadi32:
+                case instruction::sloadi16:
+                case instruction::sloadi8:
+                case instruction::sloadf32:
                 {
                     op.reg0 = read_opcode_register_arg(success);
                     if (!success) return false;
 
-                    op.reg1 = read_opcode_register_arg(success);
-                    if (!success) return false;
+                    if (!read_opcode_number_value(op.arg1)) return false;
                     break;
                 }
                 case instruction::cmp:
