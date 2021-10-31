@@ -1,20 +1,10 @@
-$initprint "Running the thing..."
-$teststr "Gun game maybe?"
-$0 s0
-$1 s1
-$2 s2
-$10 s10
-
-$a f2
-$b f2
-
 .main
-    loadc r0 $initprint
+    loadc r0 "Running the thing..."
     prints r0
     
     # Load ints
-    loadc r0 $1
-    loadc r1 $10
+    loadc r0 i100
+    loadc r1 i-10
 
     # print them
     printi r0
@@ -33,15 +23,16 @@ $b f2
     divf r2 r0 r1
     printf r2
 
-    # r3 = uint64_t(*reinterpret_cast<double*>(&r2))
+    # r4 = uint64_t(*reinterpret_cast<double*>(&r2))
+    loadc r2 f1000
     ftou r4 r2
     printu r4
 
-    loadc r0 $teststr
+    loadc r0 "Gun game maybe?"
     prints r0
     ret
 
-.function
-    loadc r0 $initprint
+.function 32
+    loadc r0 "Called a function yeknow like the settlers \"did\" hehe"
     prints r0
     ret

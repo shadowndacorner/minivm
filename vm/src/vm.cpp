@@ -27,7 +27,7 @@ namespace minivm
 
     static bool is_signed_start(char c)
     {
-        return c == 's';
+        return c == 'i';
     }
 
     static bool is_float_start(char c)
@@ -326,6 +326,10 @@ namespace minivm
 
         bool read_opcode_constant_arg(uint16_t& target)
         {
+            // Kind of hacky, but we can use this to read the constant value
+            // without code duplication
+            auto ogOffset = offset;
+
             token ctok;
             if (!gettok(ctok))
             {
@@ -334,17 +338,38 @@ namespace minivm
             }
 
             std::string_view constant = ctok.source;
-
             std::string ctokSrc(ctok.source);
-            if (!constantMap.count(ctokSrc))
+            if (ctok.type == token::toktype::cname)
             {
-                error =
-                    "Instruction attempted to use unknown "
-                    "constant [" +
-                    ctokSrc + "]";
+                if (!constantMap.count(ctokSrc))
+                {
+                    error =
+                        "Instruction attempted to use unknown "
+                        "constant [" +
+                        ctokSrc + "]";
+                    return false;
+                }
+                target = constantMap[ctokSrc];
+            }
+            else if (is_signed_start(constant[0]) ||
+                     is_unsigned_start(constant[0]) ||
+                     is_float_start(constant[0]) ||
+                     is_string_terminal(constant[0]) ||
+                     is_unsigned_start(constant[0]))
+            {
+                offset = ogOffset;
+                if (!read_constant(ctok))
+                {
+                    error = "Failed to read inline constant - " + error;
+                }
+                target = constantMap[ctokSrc];
+            }
+            else
+            {
+                error = "Expected constant name, string, or number - got " +
+                        std::string(ctok.source);
                 return false;
             }
-            target = constantMap[ctokSrc];
             return true;
         }
 
@@ -659,6 +684,30 @@ namespace minivm
             return false;
         }
 
+        inline bool read_string_into_constant_value(constant_value& val)
+        {
+            std::string str;
+            if (!read_constant_string(str))
+            {
+                return false;
+            }
+
+            // If it's in the string table already, then don't duplicate it.
+            if (constantStringTable.count(str))
+            {
+                val.value.ureg = constantStringTable[str];
+            }
+            else
+            {
+                // Copy if it isn't in the string table
+                auto start = program.write_static_string(str);
+                val.value.ureg = start;
+                constantStringTable[str] = start;
+            }
+            val.is_data_offset = true;
+            return true;
+        }
+
         template <typename T>
         inline bool read_numeric_constant_value(constant_value& val)
         {
@@ -702,24 +751,12 @@ namespace minivm
             return false;
         }
 
-        bool read_constant(token& nameTok)
+        bool read_constant(constant_value& val)
         {
-            std::string name = std::string(nameTok.source);
-
-            if (constantMap.count(name))
-            {
-                error = "Constant redefinition: [" + name + "] already exists";
-                return false;
-            }
-
-            skip_whitespace();
-
-            constant_value val;
-
             char peeked = peekchar();
             if (!peeked)
             {
-                error = "Failed to read constant [" + name + "]: EOF";
+                error = "EOF";
                 return false;
             }
 
@@ -727,28 +764,7 @@ namespace minivm
 
             if (is_string_terminal(peeked))
             {
-                std::string str;
-                if (!read_constant_string(str))
-                {
-                    error = "Failed to read constant [" + name + "]: " + error;
-
-                    return false;
-                }
-
-                // If it's in the string table already, then don't duplicate it.
-                if (constantStringTable.count(str))
-                {
-                    val.value.ureg = constantStringTable[str];
-                }
-                else
-                {
-                    // Copy if it isn't in the string table
-                    auto start = program.write_static_string(str);
-                    val.value.ureg = start;
-                    constantStringTable[str] = start;
-                }
-                val.is_data_offset = true;
-                success = true;
+                success = read_string_into_constant_value(val);
             }
             else if (is_unsigned_start(peeked))
             {
@@ -765,15 +781,37 @@ namespace minivm
 
             if (!success)
             {
-                error = "Failed to read constant [" + name + "]: " +
-                        (error.size() == 0 ? "Value had unknown type" : error);
+                error = (error.size() == 0 ? "Value had unknown type" : error);
 
                 return false;
             }
+            return true;
+        }
 
+        bool read_constant(token& nameTok, constant_value& val)
+        {
+            std::string name = std::string(nameTok.source);
+            if (constantMap.count(name))
+            {
+                error = "Constant redefinition: [" + name + "] already exists";
+                return false;
+            }
+
+            skip_whitespace();
+
+            if (!read_constant(val))
+            {
+                error = "Failed to read constant [" + name + "]: " + error;
+            }
             constantMap.insert({name, uint32_t(program.constants.size())});
             program.constants.push_back(val);
             return true;
+        }
+
+        bool read_constant(token& nameTok)
+        {
+            constant_value val;
+            return read_constant(nameTok, val);
         }
 
         bool postprocess_labels()
