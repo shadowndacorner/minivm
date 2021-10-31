@@ -1,4 +1,7 @@
+$explicitconstant "This is an explicit constant"
+
 .main
+    loadc r0 "Running the thing..."
     loadc r0 "Running the thing..."
     prints r0
     
@@ -28,11 +31,14 @@
     ftou r4 r2
     printu r4
 
-    loadc r0 "Gun game maybe?"
+    loadc r0 "Some test string"
+    loadc r0 $explicitconstant
     prints r0
     ret
 
 .function 32
     loadc r0 "Called a function yeknow like the settlers \"did\" hehe"
     prints r0
+    loadc r8 i2000
+    printi r8
     ret

@@ -149,7 +149,7 @@ namespace minivm
             return true;
         }
 
-        bool read_constant_string(std::string& out)
+        bool read_string_literal(std::string& out)
         {
             out.clear();
 
@@ -358,11 +358,34 @@ namespace minivm
                      is_unsigned_start(constant[0]))
             {
                 offset = ogOffset;
-                if (!read_constant(ctok))
+
+                std::string key;
+                if (is_string_terminal(constant[0]))
+                {
+                    auto prevOffset = offset;
+                    if (!read_string_literal(key))
+                    {
+                        error = "Failed to read inline constant - " + error;
+                        return false;
+                    }
+                    offset = prevOffset;
+                }
+                else
+                {
+                    key = ctok.source;
+                }
+
+                key = "%_impl_" + key;
+
+                token nametok;
+                nametok.source = key;
+                if (!read_constant(nametok, true))
                 {
                     error = "Failed to read inline constant - " + error;
+                    return false;
                 }
-                target = constantMap[ctokSrc];
+
+                target = constantMap[key];
             }
             else
             {
@@ -687,7 +710,7 @@ namespace minivm
         inline bool read_string_into_constant_value(constant_value& val)
         {
             std::string str;
-            if (!read_constant_string(str))
+            if (!read_string_literal(str))
             {
                 return false;
             }
@@ -788,13 +811,20 @@ namespace minivm
             return true;
         }
 
-        bool read_constant(token& nameTok, constant_value& val)
+        bool read_constant(token& nameTok, constant_value& val,
+                           bool ignoreDuplicates)
         {
+            bool hasDuplicate = false;
             std::string name = std::string(nameTok.source);
             if (constantMap.count(name))
             {
-                error = "Constant redefinition: [" + name + "] already exists";
-                return false;
+                hasDuplicate = true;
+                if (!ignoreDuplicates)
+                {
+                    error =
+                        "Constant redefinition: [" + name + "] already exists";
+                    return false;
+                }
             }
 
             skip_whitespace();
@@ -803,15 +833,19 @@ namespace minivm
             {
                 error = "Failed to read constant [" + name + "]: " + error;
             }
-            constantMap.insert({name, uint32_t(program.constants.size())});
-            program.constants.push_back(val);
+
+            if (!hasDuplicate)
+            {
+                constantMap.insert({name, uint32_t(program.constants.size())});
+                program.constants.push_back(val);
+            }
             return true;
         }
 
-        bool read_constant(token& nameTok)
+        bool read_constant(token& nameTok, bool ignoreDuplicates = false)
         {
             constant_value val;
-            return read_constant(nameTok, val);
+            return read_constant(nameTok, val, ignoreDuplicates);
         }
 
         bool postprocess_labels()
