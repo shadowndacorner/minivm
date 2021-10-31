@@ -2,37 +2,38 @@ $initprint "Running the thing..."
 $teststr "Gun game maybe?"
 $0 s0
 $1 s1
+$2 s2
 $10 s10
 
 $a f2
 $b f2
 
 .main
-    printsc $initprint
-    loadfc r0 $a
-    loadfc r1 $b
-    push r0
+    loadc r0 $initprint
+    prints r0
+    
+    # Load ints
+    loadc r0 $1
+    loadc r1 $10
 
-    loadic r3 $0
-    loadic r4 $10
-    loadic r5 $1
-    cmp r3 r4
-    jeq .skip
-    loadfc r2 $a
-    mulf r2 r2
-    mulf r2 r2
-    mulf r2 r2
-    push r2
-.loop
-    printf r0
-    mulf r0 r1
-    addi r3 r5
-    cmp r3 r4
-    jne .loop
-.skip
-    printsc $teststr
-    loads r0 2
-    loads r1 1
+    # print them
+    printi r0
+    printi r1
+
+    # Convert to floats
+    itof r0 r0
+    itof r1 r1
+
     printf r0
     printf r1
-    printsc $teststr
+
+    # r2 = r0 / r1
+    divf r2 r0 r1
+    printf r2
+
+    # r3 = uint64_t(*reinterpret_cast<double*>(&r2))
+    ftou r4 r2
+    printu r4
+
+    loadc r0 $teststr
+    prints r0

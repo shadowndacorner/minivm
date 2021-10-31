@@ -53,127 +53,150 @@ namespace minivm
             auto& code = _program.opcodes[_registers.pc];
             switch (code.instruction)
             {
-                case instruction::salloc:
-                    _error = "salloc instruction not yet implemented";
-                    return false;
+                case instruction::loadc:
+                {
+                    _registers.registers[code.reg0] =
+                        _program.constants[code.sarg1].value;
                     break;
-                case instruction::push:
-                    _stack[_registers.sp++] =
-                        _registers.registers[code.reg0].ureg;
-                    break;
-                case instruction::pop:
-                    --_registers.sp;
-                    break;
-                case instruction::loads:
-                    _registers.registers[code.reg0].ureg =
-                        _stack[_registers.sp - code.arg2];
-                    break;
-                case instruction::dloads:
-                    _registers.registers[code.reg0].ureg =
-                        _stack[_registers.sp +
-                               _registers.registers[code.arg0].ireg];
-                    break;
+                }
                 case instruction::stores:
-                    _stack[_registers.sp - code.arg2] =
+                {
+                    *reinterpret_cast<uint64_t*>(
+                        &_stack[_registers.registers[code.reg1].ureg]) =
                         _registers.registers[code.reg0].ureg;
                     break;
-                case instruction::dstores:
-                    _stack[_registers.sp +
-                           _registers.registers[code.arg0].ireg] =
-                        _registers.registers[code.reg0].ureg;
+                }
+                case instruction::loads:
+                {
+                    _registers.registers[code.reg0].ureg =
+                        *reinterpret_cast<uint64_t*>(
+                            &_stack[_registers.registers[code.reg1].ureg]);
                     break;
-                case instruction::loadic:
-                    _program.constants[code.warg0].get_i64(
-                        _registers.registers[code.arg2].ireg);
+                }
+                case instruction::utoi:
+                {
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].ureg;
                     break;
-                case instruction::loaduc:
-                    _program.constants[code.warg0].get_u64(
-                        _registers.registers[code.arg2].ureg);
+                }
+                case instruction::utof:
+                {
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].ureg;
                     break;
-                case instruction::loadfc:
-                    _program.constants[code.warg0].get_f64(
-                        _registers.registers[code.arg2].freg);
+                }
+                case instruction::itou:
+                {
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].ireg;
                     break;
-                case instruction::loadii:
-                    _registers.registers[code.arg0].ireg =
-                        _registers.registers[code.arg1].ireg;
+                }
+                case instruction::itof:
+                {
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].ireg;
                     break;
-                case instruction::loaduu:
-                    _registers.registers[code.arg0].ureg =
-                        _registers.registers[code.arg1].ureg;
+                }
+                case instruction::ftoi:
+                {
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].freg;
                     break;
-                case instruction::loadff:
-                    _registers.registers[code.arg0].freg =
-                        _registers.registers[code.arg1].freg;
+                }
+                case instruction::ftou:
+                {
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].freg;
+                    break;
+                }
+                case instruction::loadi:
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].ireg;
+                    break;
+                case instruction::loadu:
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].ureg;
+                    break;
+                case instruction::loadf:
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].freg;
                     break;
                 case instruction::addi:
-                    _registers.registers[code.arg0].ireg +=
-                        _registers.registers[code.arg1].ireg;
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].ireg +
+                        _registers.registers[code.reg2].ireg;
                     break;
                 case instruction::addu:
-                    _registers.registers[code.arg0].ureg +=
-                        _registers.registers[code.arg1].ureg;
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].ureg +
+                        _registers.registers[code.reg2].ureg;
                     break;
                 case instruction::addf:
-                    _registers.registers[code.arg0].freg +=
-                        _registers.registers[code.arg1].freg;
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].freg +
+                        _registers.registers[code.reg2].freg;
                     break;
                 case instruction::subi:
-                    _registers.registers[code.arg0].ireg -=
-                        _registers.registers[code.arg1].ireg;
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].ireg -
+                        _registers.registers[code.reg2].ireg;
                     break;
                 case instruction::subu:
-                    _registers.registers[code.arg0].ureg -=
-                        _registers.registers[code.arg1].ureg;
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].ureg -
+                        _registers.registers[code.reg2].ureg;
                     break;
                 case instruction::subf:
-                    _registers.registers[code.arg0].freg -=
-                        _registers.registers[code.arg1].freg;
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].freg -
+                        _registers.registers[code.reg2].freg;
                     break;
                 case instruction::muli:
-                    _registers.registers[code.arg0].ireg *=
-                        _registers.registers[code.arg1].ireg;
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].ireg *
+                        _registers.registers[code.reg2].ireg;
                     break;
                 case instruction::mulu:
-                    _registers.registers[code.arg0].ureg *=
-                        _registers.registers[code.arg1].ureg;
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].ureg *
+                        _registers.registers[code.reg2].ureg;
                     break;
                 case instruction::mulf:
-                    _registers.registers[code.arg0].freg *=
-                        _registers.registers[code.arg1].freg;
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].freg *
+                        _registers.registers[code.reg2].freg;
                     break;
                 case instruction::divi:
-                    _registers.registers[code.arg0].ireg /=
-                        _registers.registers[code.arg1].ireg;
+                    _registers.registers[code.reg0].ireg =
+                        _registers.registers[code.reg1].ireg /
+                        _registers.registers[code.reg2].ireg;
                     break;
                 case instruction::divu:
-                    _registers.registers[code.arg0].ureg /=
-                        _registers.registers[code.arg1].ureg;
+                    _registers.registers[code.reg0].ureg =
+                        _registers.registers[code.reg1].ureg /
+                        _registers.registers[code.reg2].ureg;
                     break;
                 case instruction::divf:
-                    _registers.registers[code.arg0].freg /=
-                        _registers.registers[code.arg1].freg;
+                    _registers.registers[code.reg0].freg =
+                        _registers.registers[code.reg1].freg /
+                        _registers.registers[code.reg2].freg;
                     break;
                 case instruction::printi:
-                    printf("%zd\n", _registers.registers[code.arg0].ireg);
+                    printf("%zd\n", _registers.registers[code.reg0].ireg);
                     break;
                 case instruction::printu:
-                    printf("%zu\n", _registers.registers[code.arg0].ureg);
+                    printf("%zu\n", _registers.registers[code.reg0].ureg);
                     break;
                 case instruction::printf:
-                    printf("%f\n", _registers.registers[code.arg0].freg);
+                    printf("%f\n", _registers.registers[code.reg0].freg);
                     break;
-                case instruction::printsc:
-                    printf("%s\n",
-                           _program.constants[code.warg0].string_ref().c_str());
-                    break;
-                case instruction::yield:
-                    _did_yield = true;
-                    shouldRun = false;
+                case instruction::prints:
+                    printf("%s\n", reinterpret_cast<const char*>(
+                                       _registers.registers[code.reg0].ureg));
                     break;
                 case instruction::cmp:
-                    _registers.cmp = _registers.registers[code.arg1].ireg -
-                                     _registers.registers[code.arg0].ireg;
+                    _registers.cmp = _registers.registers[code.reg1].ireg -
+                                     _registers.registers[code.reg0].ireg;
                     break;
                 case instruction::jump:
                     // Subtracting 1 because we increment pc after
@@ -192,6 +215,14 @@ namespace minivm
                         // Subtracting 1 because we increment pc after
                         _registers.pc = code.warg0 - 1;
                     }
+                    break;
+                case instruction::yield:
+                    _did_yield = true;
+                    shouldRun = false;
+                    break;
+                case instruction::ret:
+                    // TODO: More logic here.  Pop off a stack frame.
+                    shouldRun = false;
                     break;
                 case instruction::Count:
                     break;

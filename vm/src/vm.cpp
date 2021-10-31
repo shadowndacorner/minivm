@@ -10,66 +10,9 @@
 
 namespace minivm
 {
-    template <typename T, typename TT = T>
-    struct cvalue_variant_visitor
+    constant_value::constant_value()
+        : value({0}), is_data_offset(false), is_pointer(false)
     {
-        TT& target;
-        bool& matcher;
-
-        inline cvalue_variant_visitor(bool& matches, TT& target)
-            : target(target), matcher(matches)
-        {
-        }
-
-        template <typename _>
-        inline void operator()(_&)
-        {
-            matcher = false;
-        }
-
-        inline void operator()(T& v)
-        {
-            matcher = true;
-            target = v;
-        }
-    };
-
-    std::string& constant_value::string_ref()
-    {
-        return std::get<std::string>(_value);
-    }
-
-    bool constant_value::get_string(std::string_view& out)
-    {
-        bool match;
-        cvalue_variant_visitor<std::string, std::string_view> visitor(match,
-                                                                      out);
-        std::visit(visitor, _value);
-        return match;
-    }
-
-    bool constant_value::get_i64(int64_t& out)
-    {
-        bool match;
-        cvalue_variant_visitor<int64_t> visitor(match, out);
-        std::visit(visitor, _value);
-        return match;
-    }
-
-    bool constant_value::get_u64(uint64_t& out)
-    {
-        bool match;
-        cvalue_variant_visitor<uint64_t> visitor(match, out);
-        std::visit(visitor, _value);
-        return match;
-    }
-
-    bool constant_value::get_f64(double& out)
-    {
-        bool match;
-        cvalue_variant_visitor<double> visitor(match, out);
-        std::visit(visitor, _value);
-        return match;
     }
 
     static bool is_whitespace(char c)
@@ -322,41 +265,36 @@ namespace minivm
             return true;
         }
 
-        bool read_opcode_register_arg(uint8_t& target)
-        {
-            uint16_t tg;
-            bool res = read_opcode_register_arg(tg);
-            target = tg;
-            return res;
-        }
-
-        bool read_opcode_register_arg(uint16_t& target)
+        uint8_t read_opcode_register_arg(bool& success)
         {
             token rtok;
             if (!gettok(rtok))
             {
                 error = "Expected register, got EOF";
-                return false;
+                success = false;
+                return 0;
             }
 
             uint8_t reg;
             if (rtok.source[0] != 'r')
             {
                 error = "Expected register, got " + std::string(rtok.source);
-                return false;
+                success = false;
+                return 0;
             }
 
             if (!read_number(rtok.source.substr(1), reg))
             {
                 error = "Invalid register index " + std::string(rtok.source);
-                return false;
+                success = false;
+                return 0;
             }
 
-            target = reg;
-            return true;
+            success = true;
+            return reg;
         }
 
-        bool read_opcode_constant_arg(uint32_t& target)
+        bool read_opcode_constant_arg(uint16_t& target)
         {
             token ctok;
             if (!gettok(ctok))
@@ -407,19 +345,18 @@ namespace minivm
             static std::unordered_map<std::string_view, minivm::instruction>
                 map = {
                     // Generated
-                    {"salloc", instruction::salloc},
-                    {"push", instruction::push},
-                    {"pop", instruction::pop},
+                    {"loadc", instruction::loadc},
                     {"stores", instruction::stores},
-                    {"dstores", instruction::dstores},
                     {"loads", instruction::loads},
-                    {"dloads", instruction::dloads},
-                    {"loadic", instruction::loadic},
-                    {"loaduc", instruction::loaduc},
-                    {"loadfc", instruction::loadfc},
-                    {"loadii", instruction::loadii},
-                    {"loaduu", instruction::loaduu},
-                    {"loadff", instruction::loadff},
+                    {"loadi", instruction::loadi},
+                    {"loadu", instruction::loadu},
+                    {"loadf", instruction::loadf},
+                    {"utoi", instruction::utoi},
+                    {"utof", instruction::utof},
+                    {"itou", instruction::itou},
+                    {"itof", instruction::itof},
+                    {"ftoi", instruction::ftoi},
+                    {"ftou", instruction::ftou},
                     {"addi", instruction::addi},
                     {"addu", instruction::addu},
                     {"addf", instruction::addf},
@@ -435,7 +372,7 @@ namespace minivm
                     {"printi", instruction::printi},
                     {"printu", instruction::printu},
                     {"printf", instruction::printf},
-                    {"printsc", instruction::printsc},
+                    {"prints", instruction::prints},
                     {"yield", instruction::yield},
                     {"cmp", instruction::cmp},
                     {"jump", instruction::jump},
@@ -456,44 +393,55 @@ namespace minivm
                 return false;
             }
 
+            bool success = true;
             switch (op.instruction)
             {
-                case instruction::salloc:
-                    error = "Loading salloc not yet implemented";
-                    return false;
-                    break;
-                case instruction::push:
-                    if (!read_opcode_register_arg(op.reg0)) return false;
-                    break;
-                case instruction::pop:
-                    break;
-                case instruction::dloads:
-                case instruction::dstores:
-                    if (!read_opcode_register_arg(op.reg0)) return false;
-                    if (!read_opcode_register_arg(op.arg2)) return false;
+                case instruction::loadc:
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    if (!read_opcode_constant_arg(op.sarg1)) return false;
                     break;
                 case instruction::loads:
                 case instruction::stores:
-                    if (!read_opcode_register_arg(op.reg0)) return false;
-                    if (!read_opcode_u16(op.arg2)) return false;
-                    break;
-                case instruction::loadic:
-                case instruction::loaduc:
-                case instruction::loadfc:
                 {
-                    if (!read_opcode_register_arg(op.arg2)) return false;
-                    if (!read_opcode_constant_arg(op.warg0)) return false;
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    op.reg1 = read_opcode_register_arg(success);
+                    if (!success) return false;
                     break;
                 }
                 case instruction::cmp:
-                case instruction::loadii:
-                case instruction::loaduu:
-                case instruction::loadff:
+                case instruction::loadi:
+                case instruction::loadu:
+                case instruction::loadf:
                 {
-                    if (!read_opcode_register_arg(op.arg0)) return false;
-                    if (!read_opcode_register_arg(op.arg1)) return false;
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    op.reg1 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
                     break;
                 }
+
+                case instruction::utoi:
+                case instruction::utof:
+                case instruction::itou:
+                case instruction::itof:
+                case instruction::ftoi:
+                case instruction::ftou:
+                {
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    op.reg1 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    break;
+                }
+
                 case instruction::addi:
                 case instruction::addu:
                 case instruction::addf:
@@ -507,22 +455,28 @@ namespace minivm
                 case instruction::divu:
                 case instruction::divf:
                 {
-                    if (!read_opcode_register_arg(op.arg0)) return false;
-                    if (!read_opcode_register_arg(op.arg1)) return false;
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    op.reg1 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    op.reg2 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
                     break;
                 }
+
                 case instruction::printi:
                 case instruction::printu:
                 case instruction::printf:
+                case instruction::prints:
                 {
-                    if (!read_opcode_register_arg(op.arg0)) return false;
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
                     break;
                 }
-                case instruction::printsc:
-                {
-                    if (!read_opcode_constant_arg(op.warg0)) return false;
-                    break;
-                }
+
                 case instruction::yield:
                     // No arguments
                     break;
@@ -550,11 +504,12 @@ namespace minivm
                     if (program.labels.count(label))
                     {
                         op.warg0 = program.labels[label];
-                        op.arg2 = 0;
+                        op.sarg1 = 0;
                     }
                     else
                     {
                         op.warg0 = 0;
+                        op.sarg1 = 1;
 
                         for (size_t i = 0; i < future_labels.size(); ++i)
                         {
@@ -573,13 +528,11 @@ namespace minivm
                         {
                             --op.warg0;
                         }
-
-                        op.arg2 = 1;
                     }
 
                     break;
                 }
-                default:
+                case instruction::Count:
                 {
                     error = "Loader for instruction " +
                             std::string(instruction.source) +
@@ -650,15 +603,15 @@ namespace minivm
                 switch (res.ec)
                 {
                     case std::errc::invalid_argument:
-                        error = "Escape sequence [\\x" + std::string(str) +
-                                "] is not a valid number";
+                        error =
+                            "[" + std::string(str) + "] is not a valid number";
                         break;
                     case std::errc::result_out_of_range:
-                        error = "Escape sequence [\\x" + std::string(str) +
+                        error = "[" + std::string(str) +
                                 "] is larger than would fit in a char";
                         break;
                     default:
-                        error = "Escape sequence [\\x" + std::string(str) +
+                        error = "[" + std::string(str) +
                                 "] invalid with unknown error";
                         break;
                 }
@@ -698,10 +651,34 @@ namespace minivm
 
                     return false;
                 }
-                val.move(std::move(str));
+
+                // If it's in the string table already, then don't duplicate it.
+                if (constantStringTable.count(str))
+                {
+                    val.value.ureg = constantStringTable[str];
+                }
+                else
+                {
+                    // Copy if it isn't in the string table
+                    size_t pos = program._data.size();
+                    size_t start = pos;
+                    program._data.resize(program._data.size() + str.size() + 1);
+
+                    // Copy string content
+                    for (size_t i = 0; i < str.size(); ++i)
+                    {
+                        program._data[pos++] = str[i];
+                    }
+
+                    // Null terminate
+                    program._data[pos] = 0;
+
+                    val.value.ureg = start;
+                    constantStringTable[str] = start;
+                }
+                val.is_data_offset = true;
                 success = true;
             }
-            // TODO: Clean the following up
             else if (is_unsigned_start(peeked))
             {
                 success = read_numeric_constant_value<uint64_t>(val);
@@ -738,7 +715,7 @@ namespace minivm
                     case instruction::jump:
                     case instruction::jne:
                     case instruction::jeq:
-                        if (op.arg2)
+                        if (op.sarg1)
                         {
                             auto& label = future_labels[op.warg0];
                             if (!program.labels.count(label))
@@ -746,12 +723,28 @@ namespace minivm
                                 error = "Jump to unknown label " + label;
                                 return false;
                             }
-
                             op.warg0 = program.labels[label];
+                            op.sarg1 = 0;
                         }
                         break;
                     default:
                         break;
+                }
+            }
+            return true;
+        }
+
+        bool postprocess_constant_values()
+        {
+            for (auto& cval : program.constants)
+            {
+                if (cval.is_data_offset)
+                {
+                    cval.value.ureg = reinterpret_cast<uint64_t>(
+                        &program._data[cval.value.ureg]);
+
+                    cval.is_data_offset = false;
+                    cval.is_pointer = true;
                 }
             }
             return true;
@@ -778,9 +771,10 @@ namespace minivm
                         return false;
                 }
             }
-            return postprocess_labels();
+            return postprocess_labels() && postprocess_constant_values();
         }
 
+        std::unordered_map<std::string, uint64_t> constantStringTable;
         std::unordered_map<std::string, uint32_t> constantMap;
         std::string error;
         std::string_view source;

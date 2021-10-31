@@ -10,23 +10,23 @@ namespace minivm
 {
     enum class instruction : uint8_t
     {
-        // stack manip
-        salloc,
-        push,
-        pop,
+        loadc,
 
         stores,
-        dstores,
         loads,
-        dloads,
 
         // loads
-        loadic,
-        loaduc,
-        loadfc,
-        loadii,
-        loaduu,
-        loadff,
+        loadi,
+        loadu,
+        loadf,
+
+        // conversion
+        utoi,
+        utof,
+        itou,
+        itof,
+        ftoi,
+        ftou,
 
         // arithmetic
         addi,
@@ -46,14 +46,18 @@ namespace minivm
         printi,
         printu,
         printf,
-        printsc,
+        prints,
 
-        // execution
-        yield,
+        // control flow
         cmp,
         jump,
         jeq,
         jne,
+
+        // execution
+        yield,
+        ret,
+
         Count
     };
 
@@ -63,66 +67,49 @@ namespace minivm
         {
             struct
             {
-                uint32_t warg0;
-                union
-                {
-                    uint16_t arg0;
-                    int16_t sarg0;
-                };
-                union
-                {
-                    uint16_t arg1;
-                    int16_t sarg1;
-                };
+                uint8_t reg0 : 4;
+                uint8_t reg1 : 4;
+                uint8_t reg2 : 4;
+                uint8_t reg3 : 4;
             };
+            uint32_t warg0;
         };
+        uint16_t sarg1;
+        instruction instruction;
+    };
 
+    struct vm_register
+    {
         union
         {
-            uint16_t arg2;
-            int16_t sarg2;
+            int64_t ireg;
+            uint64_t ureg;
+            double freg;
         };
-
-        instruction instruction;
-        uint8_t reg0;
     };
 
     struct constant_value
     {
-        std::string& string_ref();
-        bool get_string(std::string_view&);
-        bool get_i64(int64_t&);
-        bool get_u64(uint64_t&);
-        bool get_f64(double&);
+        constant_value();
 
-        inline void set(int64_t value)
+        vm_register value;
+        bool is_data_offset;
+        bool is_pointer;
+
+        inline void set(uint64_t val)
         {
-            _value = value;
+            value.ureg = val;
         }
 
-        inline void set(uint64_t value)
+        inline void set(int64_t val)
         {
-            _value = value;
+            value.ireg = val;
         }
 
-        inline void set(double value)
+        inline void set(double val)
         {
-            _value = value;
+            value.freg = val;
         }
-
-        inline void set(const std::string_view& value)
-        {
-            _value = std::string(value);
-        }
-
-        inline void move(std::string&& value)
-        {
-            auto& val = std::get<std::string>(_value);
-            val.swap(value);
-        }
-
-    private:
-        std::variant<std::string, int64_t, uint64_t, double> _value;
     };
 
     class program
@@ -137,19 +124,10 @@ namespace minivm
 
     private:
         std::string load_error;
+        std::vector<char> _data;
         std::vector<constant_value> constants;
         std::vector<opcode> opcodes;
         std::unordered_map<std::string, uint32_t> labels;
-    };
-
-    struct vm_register
-    {
-        union
-        {
-            int64_t ireg;
-            uint64_t ureg;
-            double freg;
-        };
     };
 
     struct vm_execution_registers
@@ -158,6 +136,13 @@ namespace minivm
         uint32_t pc;
         uint32_t cmp;
         uint32_t sp;
+    };
+
+    struct stack_frame
+    {
+        uint32_t label;
+        uint32_t pc;
+        uint32_t stack_baseptr;
     };
 
     class execution_context
@@ -177,7 +162,8 @@ namespace minivm
 
     private:
         vm_execution_registers _registers;
-        std::vector<uint64_t> _stack;
+        std::vector<stack_frame> _callStack;
+        std::vector<uint8_t> _stack;
         program& _program;
         std::string _error;
         bool _did_yield;

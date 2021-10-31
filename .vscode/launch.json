@@ -16,7 +16,7 @@
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],
-            "console": "internalConsole"
+            "console": "integratedTerminal"
         }
     ]
 }
