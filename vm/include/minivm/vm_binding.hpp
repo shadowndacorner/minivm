@@ -271,8 +271,8 @@ namespace minivm
                 std::tuple_size<std::tuple<Args...>>::value;
 
             static_assert(
-                size < 15,
-                "Attempted to register a function with more than 15 arguments");
+                size < 16,
+                "Attempted to register a function with more than 16 arguments");
 
             return create_tuple<std::tuple<Args...>>(
                 registers, std::make_index_sequence<size>());
@@ -312,3 +312,9 @@ namespace minivm
         // }
     };
 }  // namespace minivm
+
+#define MINIVM_BIND(program, func) \
+    minivm::program_binding::set_external_function<func>(program, #func)
+
+#define MINIVM_BIND_VARIABLE(program, type, name) \
+    type* name = program.get_extern_ptr<type>(#name)

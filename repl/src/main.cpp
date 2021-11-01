@@ -34,10 +34,10 @@ int main(int argc, char** argv)
     // minivm::vm_execution_registers regs;
     // minivm::program_binding::wrapper_fn_generator<void>::call<test>(&regs);
 
-    double* externVar;
-    if (program.get_extern_ptr("externVar", &externVar))
+    MINIVM_BIND_VARIABLE(program, double, externVar);
+    if (externVar)
     {
-        *externVar = 2000.0;
+        *externVar = 350;
     }
 
     minivm::program_binding::set_external_function<test>(program,
@@ -45,6 +45,9 @@ int main(int argc, char** argv)
 
     minivm::program_binding::set_external_function<testint>(program,
                                                             "externIntFunc");
+
+    MINIVM_BIND(program, malloc);
+    MINIVM_BIND(program, free);
 
     minivm::execution_context executor(program);
     if (!executor.run_from("main"))

@@ -206,6 +206,17 @@ namespace minivm
         bool set_signed_extern(const std::string_view& name, int64_t value);
         bool set_floating_extern(const std::string_view& name, double value);
 
+        template <typename T>
+        inline T* get_extern_ptr(const std::string_view& name)
+        {
+            T* ptr;
+            if (get_extern_ptr(name, &ptr))
+            {
+                return ptr;
+            }
+            return 0;
+        }
+
         bool get_extern_ptr(const std::string_view& name, uint64_t** value);
 
         bool get_extern_ptr(const std::string_view& name, int64_t** value);
