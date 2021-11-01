@@ -1,5 +1,6 @@
-@$externVar
-@.externFunc
+@externVar
+@externVoidFunc
+@externIntFunc
 $explicitconstant "This is an explicit constant"
 
 .main
@@ -39,8 +40,15 @@ $explicitconstant "This is an explicit constant"
     ret
 
 .function 32
-    loadc r0 "Called a function yeknow like the settlers \"did\" hehe"
+    loadc r0 "Testing externals"
     prints r0
-    loadc r8 i2000
-    printi r8
+    
+    callext @externVoidFunc
+
+    loadc r0 i-300
+    loadc r1 f-250.1145
+    callext @externIntFunc
+    printf r0
+    
+    estore r0 @externVar
     ret

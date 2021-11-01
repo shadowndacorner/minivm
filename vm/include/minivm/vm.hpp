@@ -75,6 +75,7 @@ namespace minivm
 
         // execution
         call,
+        callext,
         yield,
         ret,
 
@@ -204,6 +205,12 @@ namespace minivm
         bool set_unsigned_extern(const std::string_view& name, uint64_t value);
         bool set_signed_extern(const std::string_view& name, int64_t value);
         bool set_floating_extern(const std::string_view& name, double value);
+
+        bool get_extern_ptr(const std::string_view& name, uint64_t** value);
+
+        bool get_extern_ptr(const std::string_view& name, int64_t** value);
+
+        bool get_extern_ptr(const std::string_view& name, double** value);
 
     private:
         uint32_t write_static_string(const std::string_view& string);

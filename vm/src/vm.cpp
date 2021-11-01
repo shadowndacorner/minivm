@@ -268,20 +268,18 @@ namespace minivm
         bool read_external(token& label)
         {
             char start = label.source[0];
-            if (is_label_start(start))
+
+            std::string name(label.source);
+            if (program.extern_map.count(name))
             {
-                error = "Failed to read external function " +
-                        std::string(label.source);
+                error = "Duplicate external " + name;
                 return false;
             }
-            else if (is_constant_start(start))
-            {
-                error = "Failed to read external variable " +
-                        std::string(label.source);
-                return false;
-            }
-            error = "Failed to read external " + std::string(label.source);
-            return false;
+
+            auto idx = program.externs.size();
+            program.externs.push_back({0});
+            program.extern_map[name] = idx;
+            return true;
         }
 
         bool read_label(token& label)
@@ -490,6 +488,62 @@ namespace minivm
             return true;
         }
 
+        bool read_opcode_external(uint32_t& target)
+        {
+            token labelTok;
+            if (!gettok(labelTok))
+            {
+                error = "EOF";
+            }
+
+            if (labelTok.type != token::toktype::external)
+            {
+                error =
+                    "Expected external, got " + std::string(labelTok.source);
+                return false;
+            }
+
+            std::string external(labelTok.source);
+            if (program.extern_map.count(external))
+            {
+                target = program.get_extern_id(external).idx;
+            }
+            else
+            {
+                error = "Failed to locate external " + external;
+                return false;
+            }
+            return true;
+        }
+
+        bool read_opcode_external(uint16_t& target)
+        {
+            token labelTok;
+            if (!gettok(labelTok))
+            {
+                error = "EOF";
+            }
+
+            if (labelTok.type != token::toktype::external)
+            {
+                error =
+                    "Expected external, got " + std::string(labelTok.source);
+                return false;
+            }
+
+            std::string external(labelTok.source);
+            if (program.extern_map.count(external))
+            {
+                target = program.get_extern_id(external).idx;
+            }
+            else
+            {
+                error = "Failed to locate external " + external;
+                return false;
+            }
+            return true;
+        }
+
         template <typename T>
         bool read_opcode_number_value(T& target)
         {
@@ -520,6 +574,8 @@ namespace minivm
                 map = {
                     // Generated
                     {"loadc", instruction::loadc},
+                    {"eload", instruction::eload},
+                    {"estore", instruction::estore},
                     {"sstore", instruction::sstore},
                     {"sstoreu32", instruction::sstoreu32},
                     {"sstoreu16", instruction::sstoreu16},
@@ -564,6 +620,7 @@ namespace minivm
                     {"jeq", instruction::jeq},
                     {"jne", instruction::jne},
                     {"call", instruction::call},
+                    {"callext", instruction::callext},
                     {"yield", instruction::yield},
                     {"ret", instruction::ret},
                     // End generated
@@ -589,6 +646,13 @@ namespace minivm
                     if (!success) return false;
 
                     if (!read_opcode_constant_arg(op.arg1)) return false;
+                    break;
+                case instruction::estore:
+                case instruction::eload:
+                    op.reg0 = read_opcode_register_arg(success);
+                    if (!success) return false;
+
+                    if (!read_opcode_external(op.arg1)) return false;
                     break;
                 case instruction::sstore:
                 case instruction::sstoreu32:
@@ -685,6 +749,9 @@ namespace minivm
                 }
                 case instruction::call:
                     if (!read_opcode_label(op.warg0)) return false;
+                    break;
+                case instruction::callext:
+                    if (!read_opcode_external(op.warg0)) return false;
                     break;
                 case instruction::yield:
                 case instruction::ret:
@@ -1003,6 +1070,83 @@ namespace minivm
     const char* program::get_load_error()
     {
         return load_error.c_str();
+    }
+
+    bool program::set_extern_function_ptr(const std::string_view& name,
+                                          extern_program_func_t func)
+    {
+        return set_extern_pointer(name, func);
+    }
+
+    bool program::set_unsigned_extern(const std::string_view& name,
+                                      uint64_t value)
+    {
+        auto namev = std::string(name);
+        if (extern_map.count(namev))
+        {
+            get_extern(extern_map[namev]).value.ureg = value;
+            return true;
+        }
+        return false;
+    }
+
+    bool program::set_signed_extern(const std::string_view& name, int64_t value)
+    {
+        auto namev = std::string(name);
+        if (extern_map.count(namev))
+        {
+            get_extern(extern_map[namev]).value.ireg = value;
+            return true;
+        }
+        return false;
+    }
+
+    bool program::set_floating_extern(const std::string_view& name,
+                                      double value)
+    {
+        auto namev = std::string(name);
+        if (extern_map.count(namev))
+        {
+            get_extern(extern_map[namev]).value.freg = value;
+            return true;
+        }
+        return false;
+    }
+
+    bool program::get_extern_ptr(const std::string_view& name, uint64_t** value)
+    {
+        auto namev = std::string(name);
+        if (extern_map.count(namev))
+        {
+            *value = &get_extern(extern_map[namev]).value.ureg;
+            return true;
+        }
+        *value = 0;
+        return false;
+    }
+
+    bool program::get_extern_ptr(const std::string_view& name, int64_t** value)
+    {
+        auto namev = std::string(name);
+        if (extern_map.count(namev))
+        {
+            *value = &get_extern(extern_map[namev]).value.ireg;
+            return true;
+        }
+        *value = 0;
+        return false;
+    }
+
+    bool program::get_extern_ptr(const std::string_view& name, double** value)
+    {
+        auto namev = std::string(name);
+        if (extern_map.count(namev))
+        {
+            *value = &get_extern(extern_map[namev]).value.freg;
+            return true;
+        }
+        *value = 0;
+        return false;
     }
 
     uint32_t program::write_static_string(const std::string_view& str)

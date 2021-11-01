@@ -89,6 +89,18 @@ namespace minivm
                         _program.constants[code.arg1].value;
                     break;
                 }
+                case instruction::eload:
+                {
+                    _registers.registers[code.reg0] =
+                        _program.externs[code.arg1].value;
+                    break;
+                }
+                case instruction::estore:
+                {
+                    _program.externs[code.arg1].value =
+                        _registers.registers[code.reg0];
+                    break;
+                }
                 case instruction::sstore:
                 {
                     *reinterpret_cast<uint64_t*>(
@@ -341,6 +353,12 @@ namespace minivm
                 case instruction::call:
                 {
                     call(code.warg0);
+                    break;
+                }
+                case instruction::callext:
+                {
+                    reinterpret_cast<extern_program_func_t>(
+                        _program.externs[code.warg0].value.ureg)(&_registers);
                     break;
                 }
                 case instruction::yield:
