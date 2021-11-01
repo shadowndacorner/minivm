@@ -45,6 +45,12 @@ namespace minivm
         return c == '$';
     }
 
+    // Externs can be either labels or functions
+    static bool is_extern_start(char c)
+    {
+        return c == '@';
+    }
+
     static bool is_label_start(char c)
     {
         return c == '.';
@@ -52,7 +58,7 @@ namespace minivm
 
     static bool is_comment_start(char c)
     {
-        return c == '#';
+        return c == '#' || c == ';';
     }
 
     static bool is_numeric(char c)
@@ -93,6 +99,7 @@ namespace minivm
         {
             enum class toktype
             {
+                external,
                 label,
                 ident,
                 cname,
@@ -238,8 +245,13 @@ namespace minivm
                     tok.source = read_ident_source(0);
                     return true;
                 }
-
-                if (is_label_start(c))
+                else if (is_extern_start(c))
+                {
+                    tok.type = token::toktype::external;
+                    tok.source = read_ident_source(0);
+                    return true;
+                }
+                else if (is_label_start(c))
                 {
                     tok.type = token::toktype::label;
                     tok.source = read_ident_source(0);
@@ -250,6 +262,25 @@ namespace minivm
                 tok.source = read_ident_source(-1);
                 return true;
             }
+            return false;
+        }
+
+        bool read_external(token& label)
+        {
+            char start = label.source[0];
+            if (is_label_start(start))
+            {
+                error = "Failed to read external function " +
+                        std::string(label.source);
+                return false;
+            }
+            else if (is_constant_start(start))
+            {
+                error = "Failed to read external variable " +
+                        std::string(label.source);
+                return false;
+            }
+            error = "Failed to read external " + std::string(label.source);
             return false;
         }
 
@@ -505,9 +536,7 @@ namespace minivm
                     {"sloadi16", instruction::sloadi16},
                     {"sloadi8", instruction::sloadi8},
                     {"sloadf32", instruction::sloadf32},
-                    {"loadi", instruction::loadi},
-                    {"loadu", instruction::loadu},
-                    {"loadf", instruction::loadf},
+                    {"mov", instruction::mov},
                     {"utoi", instruction::utoi},
                     {"utof", instruction::utof},
                     {"itou", instruction::itou},
@@ -585,9 +614,7 @@ namespace minivm
                     break;
                 }
                 case instruction::cmp:
-                case instruction::loadi:
-                case instruction::loadu:
-                case instruction::loadf:
+                case instruction::mov:
                 {
                     op.reg0 = read_opcode_register_arg(success);
                     if (!success) return false;
@@ -911,6 +938,9 @@ namespace minivm
             {
                 switch (tok.type)
                 {
+                    case token::toktype::external:
+                        if (!read_external(tok)) return false;
+                        break;
                     case token::toktype::label:
                         if (!read_label(tok)) return false;
                         break;
@@ -920,9 +950,6 @@ namespace minivm
                     case token::toktype::cname:
                         if (!read_constant(tok)) return false;
                         break;
-                    default:
-                        error = "Unknown token " + std::string(tok.source);
-                        return false;
                 }
             }
             return postprocess_labels() && postprocess_label_references() &&
@@ -995,8 +1022,9 @@ namespace minivm
         return start;
     }
 
-    program_label_id program::get_label_id(const std::string_view& label)
+    program_label_id_t program::get_label_id(const std::string_view& label)
     {
+        // TODO: This doesn't need to allocate
         return label_map[std::string(label)];
     }
 
@@ -1005,9 +1033,25 @@ namespace minivm
         return get_label(get_label_id(label));
     }
 
-    program_label& program::get_label(program_label_id id)
+    program_label& program::get_label(program_label_id_t id)
     {
         return labels[id.idx];
+    }
+
+    program_extern_id_t program::get_extern_id(const std::string_view& label)
+    {
+        // TODO: This doesn't need to allocate
+        return extern_map[std::string(label)];
+    }
+
+    program_extern_value& program::get_extern(const std::string_view& label)
+    {
+        return get_extern(get_extern_id(label));
+    }
+
+    program_extern_value& program::get_extern(program_extern_id_t id)
+    {
+        return externs[id.idx];
     }
 
 }  // namespace minivm

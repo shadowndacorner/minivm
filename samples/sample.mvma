@@ -1,10 +1,12 @@
+@$externVar
+@.externFunc
 $explicitconstant "This is an explicit constant"
 
 .main
     loadc r0 "Running the thing..."
     loadc r0 "Running the thing..."
     prints r0
-    
+
     # Load ints
     loadc r0 i100
     loadc r1 i-10

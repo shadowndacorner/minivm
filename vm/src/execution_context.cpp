@@ -32,7 +32,7 @@ namespace minivm
         return run();
     }
 
-    void execution_context::call(program_label_id labelId)
+    void execution_context::call(program_label_id_t labelId)
     {
         auto& label = _program.get_label(labelId);
 
@@ -51,7 +51,7 @@ namespace minivm
         }
     }
 
-    void execution_context::jump(program_label_id labelId)
+    void execution_context::jump(program_label_id_t labelId)
     {
         auto& label = _program.get_label(labelId);
         jump(label);
@@ -239,17 +239,9 @@ namespace minivm
                         _registers.registers[code.reg1].freg;
                     break;
                 }
-                case instruction::loadi:
-                    _registers.registers[code.reg0].ireg =
-                        _registers.registers[code.reg1].ireg;
-                    break;
-                case instruction::loadu:
+                case instruction::mov:
                     _registers.registers[code.reg0].ureg =
                         _registers.registers[code.reg1].ureg;
-                    break;
-                case instruction::loadf:
-                    _registers.registers[code.reg0].freg =
-                        _registers.registers[code.reg1].freg;
                     break;
                 case instruction::addi:
                     _registers.registers[code.reg0].ireg =
