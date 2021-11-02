@@ -1,6 +1,8 @@
 # MiniVM
 
-This is a small C++17 register VM.  I wrote primarily as a learning exercise, but intend to use it for a statically typed scripting language I am developing separately.
+This is a small C++17 register VM.  I wrote this primarily as a learning exercise, but intend to use it for a statically typed scripting language I am developing separately.  It is _extremely_ simple (intentionally so) and I am just implementing functionality as I need it.
+
+Documentation is currently somewhat light.  I will be adding to it later.
 
 ## Usage
 
