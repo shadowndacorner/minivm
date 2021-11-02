@@ -313,7 +313,7 @@ namespace minivm
     };
 }  // namespace minivm
 
-#define MINIVM_BIND(program, func) \
+#define MINIVM_BIND_FUNCTION(program, func) \
     minivm::program_binding::set_external_function<func>(program, #func)
 
 #define MINIVM_BIND_VARIABLE(program, type, name) \

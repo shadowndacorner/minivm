@@ -4,12 +4,12 @@
 #include <minivm/vm.hpp>
 #include <minivm/vm_binding.hpp>
 
-static void test()
+static void externVoidFunc()
 {
     printf("extern test\n");
 }
 
-static float testint(int test, float test2)
+static float externIntFunc(int test, float test2)
 {
     printf("extern test %d %f\n", test, test2);
     return test2 / test;
@@ -40,14 +40,8 @@ int main(int argc, char** argv)
         *externVar = 350;
     }
 
-    minivm::program_binding::set_external_function<test>(program,
-                                                         "externVoidFunc");
-
-    minivm::program_binding::set_external_function<testint>(program,
-                                                            "externIntFunc");
-
-    MINIVM_BIND(program, malloc);
-    MINIVM_BIND(program, free);
+    MINIVM_BIND_FUNCTION(program, externVoidFunc);
+    MINIVM_BIND_FUNCTION(program, externIntFunc);
 
     minivm::execution_context executor(program);
     if (!executor.run_from("main"))

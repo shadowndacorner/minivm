@@ -24,7 +24,7 @@ namespace minivm
             return false;
         }
 
-        call(_program.get_label_id(label));
+        call_internal(_program.get_label_id(label));
 
         // Countering the -1 in jump
         ++_registers.pc;
@@ -32,7 +32,7 @@ namespace minivm
         return run();
     }
 
-    void execution_context::call(program_label_id_t labelId)
+    void execution_context::call_internal(program_label_id_t labelId)
     {
         auto& label = _program.get_label(labelId);
 
@@ -352,13 +352,38 @@ namespace minivm
                     break;
                 case instruction::call:
                 {
-                    call(code.warg0);
+                    call_internal(code.warg0);
                     break;
                 }
                 case instruction::callext:
                 {
-                    reinterpret_cast<extern_program_func_t>(
-                        _program.externs[code.warg0].value.ureg)(&_registers);
+                    auto fn = reinterpret_cast<extern_program_func_t>(
+                        _program.externs[code.warg0].value.ureg);
+                    if (fn)
+                    {
+                        fn(&_registers);
+                    }
+                    else
+                    {
+                        _error = "Failed to call external function ";
+                        bool found = false;
+                        for (auto& it : _program.extern_map)
+                        {
+                            if (it.second.idx == code.warg0)
+                            {
+                                _error += it.first;
+                                found = true;
+                                break;
+                            }
+                        }
+
+                        if (!found)
+                        {
+                            _error += "[unknown]";
+                        }
+                        _error += " - pointer was null";
+                        return false;
+                    }
                     break;
                 }
                 case instruction::yield:

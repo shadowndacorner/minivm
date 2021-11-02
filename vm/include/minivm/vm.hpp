@@ -175,6 +175,7 @@ namespace minivm
     struct vm_execution_registers
     {
         vm_word_t registers[16];
+        vm_word_t result;
         uint32_t pc;
         uint32_t cmp;
         uint32_t sp;
@@ -262,13 +263,28 @@ namespace minivm
 
     public:
         const char* get_error();
+
+        // template <typename R, typename... Args>
+        // inline R call(const std::string_view& label, Args&&... args)
+        // {
+        //     std::string copy = std::string(label);
+        //     if (!_program.label_map.count(copy))
+        //     {
+        //         _error = "Unknown label " + copy;
+        //         return R();
+        //     }
+
+        //     call_internal(_program.get_label_id(label));
+        //     // TODO: Finish this
+        // }
+
         bool run_from(const std::string_view& label);
         bool resume();
         bool did_yield() const;
 
     private:
         bool run();
-        void call(program_label_id_t label);
+        void call_internal(program_label_id_t label);
         void jump(program_label_id_t label);
         void jump(const program_label& label);
 
