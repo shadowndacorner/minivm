@@ -1,4 +1,5 @@
-.cache
-build
-bin
+.cache/*
+.vscode/
+build/
+bin/
 compile_commands.json
